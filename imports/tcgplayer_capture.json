@@ -1,0 +1,153 @@
+[
+  {
+    "url": "https://infinite-api.tcgplayer.com/c/verticals/",
+    "data": {
+      "result": [
+        {
+          "verticalName": "Announcements",
+          "displayName": "Announcements",
+          "urlName": "announcements"
+        },
+        {
+          "verticalName": "Battle Spirits Saga",
+          "displayName": "Battle Spirits Saga",
+          "urlName": "battle-spirits-saga"
+        },
+        {
+          "verticalName": "Cardfight!! Vanguard",
+          "displayName": "Cardfight!! Vanguard",
+          "urlName": "cardfight-vanguard"
+        },
+        {
+          "verticalName": "Digimon Card Game",
+          "displayName": "Digimon Card Game",
+          "urlName": "digimon-card-game"
+        },
+        {
+          "verticalName": "Dragon Ball Super: Fusion World",
+          "displayName": "Dragon Ball Super: Fusion World",
+          "urlName": "dragon-ball-super-fusion-world"
+        },
+        {
+          "verticalName": "Flesh and Blood",
+          "displayName": "Flesh and Blood",
+          "urlName": "flesh-and-blood"
+        },
+        {
+          "verticalName": "General",
+          "displayName": "General",
+          "urlName": "general"
+        },
+        {
+          "verticalName": "Grand Archive TCG",
+          "displayName": "Grand Archive TCG",
+          "urlName": "grand-archive-tcg"
+        },
+        {
+          "verticalName": "Gundam Card Game",
+          "displayName": "Gundam Card Game",
+          "urlName": "gundam-card-game"
+        },
+        {
+          "verticalName": "Lorcana",
+          "displayName": "Disney Lorcana",
+          "urlName": "lorcana"
+        },
+        {
+          "verticalName": "Magic",
+          "displayName": "Magic: The Gathering",
+          "urlName": "magic"
+        },
+        {
+          "verticalName": "One Piece",
+          "displayName": "One Piece",
+          "urlName": "one-piece"
+        },
+        {
+          "verticalName": "Pokemon",
+          "displayName": "Pokémon",
+          "urlName": "pokemon"
+        },
+        {
+          "verticalName": "Riftbound",
+          "displayName": "Riftbound",
+          "urlName": "riftbound"
+        },
+        {
+          "verticalName": "Shadowverse: Evolve",
+          "displayName": "Shadowverse: Evolve",
+          "urlName": "shadowverse-evolve"
+        },
+        {
+          "verticalName": "Sorcery: Contested Realm",
+          "displayName": "Sorcery: Contested Realm",
+          "urlName": "sorcery-contested-realm"
+        },
+        {
+          "verticalName": "Star Wars: Unlimited",
+          "displayName": "Star Wars: Unlimited",
+          "urlName": "star-wars-unlimited"
+        },
+        {
+          "verticalName": "Union Arena",
+          "displayName": "Union Arena",
+          "urlName": "union-arena"
+        },
+        {
+          "verticalName": "UniVersus",
+          "displayName": "UniVersus",
+          "urlName": "universus"
+        },
+        {
+          "verticalName": "Weiss Schwarz",
+          "displayName": "Weiss Schwarz",
+          "urlName": "weiss-schwarz"
+        },
+        {
+          "verticalName": "YuGiOh",
+          "displayName": "Yu-Gi-Oh!",
+          "urlName": "yugioh"
+        }
+      ]
+    }
+  },
+  {
+    "url": "https://mpapi.tcgplayer.com/v2/user",
+    "data": {
+      "errors": [],
+      "results": [
+        {
+          "userName": "",
+          "userId": 0,
+          "userKey": "00000000-0000-0000-0000-000000000000",
+          "isSubscriber": false,
+          "lastUsedShippingAddress": null,
+          "shippingCountry": "US",
+          "createdAt": null,
+          "externalUserId": "00000000-0000-0000-0000-000000000000",
+          "isGuest": false,
+          "isValidated": false,
+          "cartKey": null,
+          "saveForLaterKey": null,
+          "productLineAffinity": null,
+          "ipAddress": "104.54.94.100",
+          "traits": null,
+          "sellerKeys": [],
+          "sellerLevels": null
+        }
+      ]
+    }
+  },
+  {
+    "url": "https://mpapi.tcgplayer.com/v2/search/directInfo?userKey=00000000-0000-0000-0000-000000000000&shippingCountry=US",
+    "data": {
+      "errors": [],
+      "results": [
+        {
+          "isUserDirectEligible": true,
+          "directShippingThreshold": 50
+        }
+      ]
+    }
+  }
+]

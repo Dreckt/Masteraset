@@ -1,0 +1,23 @@
+# dependencies
+node_modules
+
+# next / vercel / cf build artifacts
+.next
+.vercel/output
+__next-on-pages-dist__
+.wrangler
+__next-on-pages-dist__
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# env
+.env
+.env.local
+.env.*.local
+
+# OS/editor
+.DS_Store
+Thumbs.db

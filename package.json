@@ -1,0 +1,35 @@
+{
+  "name": "masteraset",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "pages:dev": "wrangler pages dev .vercel/output/static --compatibility-date=2025-01-01",
+    "pages:build": "npx @cloudflare/next-on-pages",
+    "db:migrate:local": "npx wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply masteraset-db",
+    "cf:build": "npx @cloudflare/next-on-pages && find .vercel/output/static/_worker.js/__next-on-pages-dist__/functions -type f -name '*.js' -print0 | xargs -0 perl -pi -e 's/\"async_hooks\"/\"node:async_hooks\"/g; s/node:node:/node:/g'",
+    "cf:dev": "npm run cf:build && npx wrangler pages dev .vercel/output/static --port 8788",
+    "db:seed:demo": "npx wrangler d1 execute DB --local --file=seed_demo.sql",
+    "db:seed:weiss": "npx wrangler d1 execute DB --local --file=seed_weiss_5hy_we43.sql"
+  },
+  "dependencies": {
+    "@cloudflare/next-on-pages": "1.13.12",
+    "next": "14.2.12",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.15",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "csv-parse": "^6.1.0",
+    "typescript": "5.5.4",
+    "wrangler": "3.72.0"
+  }
+}

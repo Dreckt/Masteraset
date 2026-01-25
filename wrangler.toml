@@ -1,0 +1,9 @@
+name = "masteraset"
+compatibility_date = "2024-08-06"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "masteraset-db"
+database_id = "83b57b71-2c25-4830-a63e-ecc0d08d2749"
+
