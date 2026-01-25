@@ -1,7 +1,10 @@
 export default function HomePage() {
   return (
     <div style={{ maxWidth: 900, margin: "0 auto" }}>
-      <h1 style={{ marginTop: 8 }}>Master a Set</h1>
+
+<h1 className="brand-title">
+  Master <span className="brand-a">A</span> Set
+</h1>
       <p>Track sets and your collection across Weiss Schwarz, Pokémon, MTG, Lorcana, One Piece — with room to add more.</p>
       <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
         <a href="/games" style={{ padding: "10px 12px", border: "1px solid #ddd", borderRadius: 10, textDecoration: "none", color: "#111" }}>
