@@ -1,6 +1,9 @@
 export default function HomePage() {
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto" }}>
+
+<div className="hero-wrap">
+  <div className="hero-card">
+
 
 <h1 className="brand-title">
   Master <span className="brand-a">A</span> Set
@@ -16,6 +19,8 @@ export default function HomePage() {
       <p style={{ marginTop: 18, fontSize: 13, opacity: 0.75 }}>
         Note: Login is wired, but sending the magic link email requires adding an email provider key (template included).
       </p>
-    </div>
+  </div>
+</div>
+
   );
 }
