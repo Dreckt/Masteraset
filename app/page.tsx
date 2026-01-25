@@ -6,17 +6,13 @@ export default function HomePage() {
   Master <span className="brand-a">A</span> Set
 </h1>
       <p>Track sets and your collection across Weiss Schwarz, Pokémon, MTG, Lorcana, One Piece — with room to add more.</p>
-      <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
-        <a href="/games" style={{ padding: "10px 12px", border: "1px solid #ddd", borderRadius: 10, textDecoration: "none", color: "#111" }}>
-          Browse Games & Sets
-        </a>
-        <a href="/me" style={{ padding: "10px 12px", border: "1px solid #ddd", borderRadius: 10, textDecoration: "none", color: "#111" }}>
-          View My Collection
-        </a>
-        <a href="/admin/seed" style={{ padding: "10px 12px", border: "1px solid #ddd", borderRadius: 10, textDecoration: "none", color: "#111" }}>
-          Dev: Seed Sample Data
-        </a>
-      </div>
+
+<div className="hero-actions">
+  <a href="/games" className="btn primary">Browse Games &amp; Sets</a>
+  <a href="/me" className="btn secondary">View My Collection</a>
+  <a href="/admin/seed" className="btn ghost">Dev: Seed Sample Data</a>
+</div>
+
       <p style={{ marginTop: 18, fontSize: 13, opacity: 0.75 }}>
         Note: Login is wired, but sending the magic link email requires adding an email provider key (template included).
       </p>

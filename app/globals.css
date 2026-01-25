@@ -147,3 +147,92 @@ main a:hover {
   color: #8fd3ff;
   text-shadow: 0 0 12px rgba(143,211,255,0.65);
 }
+
+/* ===== Hero + Premium Buttons ===== */
+
+.hero-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+/* Button base */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.92);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(143,211,255,0.55);
+  box-shadow: 0 0 18px rgba(143,211,255,0.22);
+}
+
+.btn:active {
+  transform: translateY(0px);
+}
+
+/* Primary */
+.btn.primary {
+  background: linear-gradient(180deg, rgba(143,211,255,0.22), rgba(99,102,241,0.18));
+  border-color: rgba(143,211,255,0.55);
+  box-shadow: 0 0 22px rgba(143,211,255,0.18);
+}
+
+/* Secondary */
+.btn.secondary {
+  background: rgba(255,255,255,0.07);
+}
+
+/* Ghost (dev link) */
+.btn.ghost {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.12);
+  opacity: 0.9;
+}
+
+/* Hero card-texture overlay (subtle) */
+.app-shell {
+  position: relative;
+}
+
+.app-shell::before {
+  content: "";
+  position: absolute;
+  inset: -40px -20px auto -20px;
+  height: 360px;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    radial-gradient(700px 260px at 20% 0%, rgba(99,102,241,0.22), transparent 60%),
+    radial-gradient(700px 260px at 80% 20%, rgba(143,211,255,0.16), transparent 60%),
+    linear-gradient(to bottom, rgba(255,255,255,0.06), transparent 70%);
+
+  /* faint “card grid” */
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,1), rgba(0,0,0,0));
+}
+
+.app-shell::after {
+  content: "";
+  position: absolute;
+  inset: -40px -20px auto -20px;
+  height: 360px;
+  pointer-events: none;
+  z-index: -1;
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px);
+  background-size: 120px 80px;
+  opacity: 0.10;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,0.9), rgba(0,0,0,0));
+}
