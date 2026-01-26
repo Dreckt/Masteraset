@@ -1,5 +1,7 @@
 export const runtime = "edge";
 
+import { headers } from "next/headers";
+
 type PokemonSet = {
   id: string;
   name: string;
@@ -11,7 +13,12 @@ type PokemonSet = {
 };
 
 async function getSet(setId: string): Promise<PokemonSet | null> {
-  const res = await fetch(`/api/pokemon/sets/${setId}`, { cache: "no-store" });
+  const h = headers();
+  const host = h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? "https";
+  const origin = `${proto}://${host}`;
+
+  const res = await fetch(`${origin}/api/pokemon/sets/${setId}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Failed to load set ${setId}: ${res.status}`);
   const json = (await res.json()) as { data?: PokemonSet };
@@ -85,3 +92,4 @@ export default async function PokemonSetPage({
     </main>
   );
 }
+
