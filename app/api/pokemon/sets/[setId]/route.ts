@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 
 export const runtime = "edge";
 
+type PokemonSet = {
+  id: string;
+  name: string;
+  series?: string;
+  printedTotal?: number;
+  total?: number;
+  releaseDate?: string;
+  updatedAt?: string;
+  images?: { symbol?: string; logo?: string };
+};
+
 export async function GET(
   _req: Request,
   { params }: { params: { setId: string } }
@@ -12,11 +23,10 @@ export async function GET(
     return NextResponse.json({ error: "API key missing" }, { status: 500 });
   }
 
-  const upstream = `https://api.pokemontcg.io/v2/sets/${encodeURIComponent(params.setId)}`;
+  const upstream = "https://api.pokemontcg.io/v2/sets";
 
-  // Give it enough time for cold-start / slow upstream
   const controller = new AbortController();
-  const timeoutMs = 20000; // 20s
+  const timeoutMs = 20000;
   const t = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
@@ -33,10 +43,9 @@ export async function GET(
     const text = await res.text();
 
     if (!res.ok) {
-      // Pass upstream error through (but safely)
       return NextResponse.json(
         {
-          error: "Upstream PokemonTCG error",
+          error: "Upstream PokemonTCG error (sets list)",
           status: res.status,
           bodyPreview: text.slice(0, 200),
         },
@@ -44,18 +53,26 @@ export async function GET(
       );
     }
 
-    // Small cache helps a ton (sets don't change often)
-    return new NextResponse(text, {
-      status: 200,
-      headers: {
-        "content-type": res.headers.get("content-type") ?? "application/json; charset=utf-8",
-        "cache-control": "public, max-age=300", // 5 minutes
-      },
-    });
+    const json = JSON.parse(text) as { data?: PokemonSet[] };
+    const set = (json.data ?? []).find((s) => s.id === params.setId);
+
+    if (!set) {
+      return NextResponse.json({ error: "Set not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(
+      { data: set },
+      {
+        status: 200,
+        headers: {
+          // Cache helps a lot; list changes rarely
+          "cache-control": "public, max-age=600", // 10 minutes
+        },
+      }
+    );
   } catch (err: any) {
     clearTimeout(t);
 
-    // Distinguish timeout vs other errors
     const isAbort =
       err?.name === "AbortError" ||
       String(err?.message ?? "").toLowerCase().includes("aborted");
@@ -63,7 +80,7 @@ export async function GET(
     if (isAbort) {
       return NextResponse.json(
         {
-          error: "Upstream request timed out (aborted)",
+          error: "Upstream sets list timed out (aborted)",
           upstream,
           timeoutMs,
         },
@@ -72,10 +89,7 @@ export async function GET(
     }
 
     return NextResponse.json(
-      {
-        error: err?.message ?? "Unknown error",
-        upstream,
-      },
+      { error: err?.message ?? "Unknown error", upstream },
       { status: 500 }
     );
   }
