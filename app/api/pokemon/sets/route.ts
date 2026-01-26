@@ -70,7 +70,8 @@ export async function GET(req: Request) {
     const json = await res.json();
     return NextResponse.json({ ...json, source: "upstream" }, { status: 200 });
   } catch (err: any) {
-    const msg = err?.name === "AbortError" ? "Upstream timed out" : (err?.message ?? "Upstream error");
+    const msg =
+      err?.name === "AbortError" ? "Upstream timed out" : err?.message ?? "Upstream error";
     return NextResponse.json(
       { error: msg, upstream, hint: "Try again later; upstream is returning 504s right now." },
       { status: 504 }
