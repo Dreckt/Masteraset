@@ -13,12 +13,15 @@ type SetRow = {
   images?: { symbol?: string; logo?: string };
 };
 
-async function fetchJsonWithTimeout(url: string, headers: Record<string, string>, timeoutMs: number) {
+async function fetchWithTimeout(
+  url: string,
+  headers: Record<string, string>,
+  timeoutMs: number
+) {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, { headers, signal: controller.signal });
-    return res;
+    return await fetch(url, { headers, signal: controller.signal });
   } finally {
     clearTimeout(t);
   }
@@ -30,19 +33,42 @@ export async function POST(req: Request) {
     const db = (env as unknown as CloudflareEnv).DB;
 
     const apiKey = (env as unknown as CloudflareEnv).POKEMONTCG_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: "POKEMONTCG_API_KEY missing" }, { status: 500 });
+    if (!apiKey) {
+      return NextResponse.json({ error: "POKEMONTCG_API_KEY missing" }, { status: 500 });
+    }
 
-    // protection
+    // auth
     const url = new URL(req.url);
     const token = url.searchParams.get("token");
     const expected = (env as unknown as CloudflareEnv).ADMIN_IMPORT_TOKEN;
-    if (expected && token !== expected) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (expected && token !== expected) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    // controls
-    const pageSize = Math.min(Math.max(Number(url.searchParams.get("pageSize") ?? 50), 10), 250); // 10..250
-    const maxPages = Math.min(Math.max(Number(url.searchParams.get("maxPages") ?? 30), 1), 200); // safety cap
-    const perPageTimeoutMs = Math.min(Math.max(Number(url.searchParams.get("timeoutMs") ?? 12000), 3000), 20000);
+    // import controls (start simple)
+    const page = Math.max(Number(url.searchParams.get("page") ?? 1), 1);
+    const pageSize = Math.min(Math.max(Number(url.searchParams.get("pageSize") ?? 50), 10), 250);
+    const timeoutMs = Math.min(Math.max(Number(url.searchParams.get("timeoutMs") ?? 12000), 3000), 20000);
 
+    const upstream = `https://api.pokemontcg.io/v2/sets?page=${page}&pageSize=${pageSize}`;
+    const res = await fetchWithTimeout(
+      upstream,
+      { "X-Api-Key": apiKey, Accept: "application/json" },
+      timeoutMs
+    );
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return NextResponse.json(
+        { error: "Upstream failed", status: res.status, page, pageSize, bodyPreview: body.slice(0, 200) },
+        { status: res.status }
+      );
+    }
+
+    const json = (await res.json()) as { data?: SetRow[] };
+    const sets = json.data ?? [];
+
+    // Create table
     await db.exec(`
       CREATE TABLE IF NOT EXISTS pokemon_sets (
         id TEXT PRIMARY KEY,
@@ -58,7 +84,6 @@ export async function POST(req: Request) {
       );
     `);
 
-    const headers = { "X-Api-Key": apiKey, Accept: "application/json" };
     const now = new Date().toISOString();
 
     const stmt = db.prepare(`
@@ -78,73 +103,41 @@ export async function POST(req: Request) {
     `);
 
     let imported = 0;
-    let page = 1;
 
-    for (; page <= maxPages; page++) {
-      const upstream = `https://api.pokemontcg.io/v2/sets?page=${page}&pageSize=${pageSize}`;
-
-      const res = await fetchJsonWithTimeout(upstream, headers, perPageTimeoutMs);
-
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        return NextResponse.json(
-          {
-            error: "Upstream failed",
-            status: res.status,
-            page,
-            pageSize,
-            bodyPreview: body.slice(0, 200),
-          },
-          { status: res.status }
-        );
-      }
-
-      const json = (await res.json()) as { data?: SetRow[] };
-      const sets = json.data ?? [];
-
-      // done
-      if (sets.length === 0) break;
-
-      const batch: D1PreparedStatement[] = [];
-      for (const s of sets) {
-        if (!s?.id) continue;
-        batch.push(
-          stmt.bind(
-            s.id,
-            s.name ?? "",
-            s.series ?? "",
-            s.releaseDate ?? null,
-            typeof s.printedTotal === "number" ? s.printedTotal : null,
-            typeof s.total === "number" ? s.total : null,
-            s.images?.symbol ?? null,
-            s.images?.logo ?? null,
-            JSON.stringify(s),
-            now
-          )
-        );
-      }
-
-      await db.batch(batch);
-      imported += batch.length;
-
-      // If we got less than a full page, we're at the end.
-      if (sets.length < pageSize) break;
+    // IMPORTANT: run statements one-by-one (no db.batch) to avoid adapter issues
+    for (const s of sets) {
+      if (!s?.id) continue;
+      await stmt
+        .bind(
+          s.id,
+          s.name ?? "",
+          s.series ?? "",
+          s.releaseDate ?? null,
+          typeof s.printedTotal === "number" ? s.printedTotal : null,
+          typeof s.total === "number" ? s.total : null,
+          s.images?.symbol ?? null,
+          s.images?.logo ?? null,
+          JSON.stringify(s),
+          now
+        )
+        .run();
+      imported++;
     }
 
     return NextResponse.json(
-      { ok: true, imported, pagesFetched: page, pageSize },
+      { ok: true, page, pageSize, imported },
       { status: 200 }
     );
   } catch (err: any) {
+    const msg = err?.message ?? String(err);
     const isAbort =
       err?.name === "AbortError" ||
-      String(err?.message ?? "").toLowerCase().includes("aborted") ||
-      String(err?.message ?? "").toLowerCase().includes("timeout");
+      msg.toLowerCase().includes("aborted") ||
+      msg.toLowerCase().includes("timeout");
 
     return NextResponse.json(
-      { error: isAbort ? "Import timed out" : (err?.message ?? "Unknown error") },
+      { error: isAbort ? "Import timed out" : msg },
       { status: isAbort ? 504 : 500 }
     );
   }
-
 }
