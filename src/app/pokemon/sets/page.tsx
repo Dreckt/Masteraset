@@ -10,7 +10,7 @@ type PokemonSet = {
 async function getSets(): Promise<PokemonSet[]> {
   const res = await fetch("/api/pokemon/sets", { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to load sets: ${res.status}`);
-  const json = await res.json();
+  const json = (await res.json()) as { data?: PokemonSet[] };
   return json?.data ?? [];
 }
 

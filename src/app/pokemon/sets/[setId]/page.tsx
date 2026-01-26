@@ -14,7 +14,7 @@ async function getSet(setId: string): Promise<PokemonSet | null> {
   const res = await fetch(`/api/pokemon/sets/${setId}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Failed to load set ${setId}: ${res.status}`);
-  const json = await res.json();
+  const json = (await res.json()) as { data?: PokemonSet };
   return json?.data ?? null;
 }
 
