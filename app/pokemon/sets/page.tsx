@@ -17,19 +17,19 @@ export default async function PokemonSetsPage() {
   const json: any = await getSets();
   const sets = (json?.data ?? []) as any[];
 
-
   return (
     <div className="page">
       <h1 className="brand-title">
         Pokémon <span className="brand-a">Sets</span>
       </h1>
+
       <p style={{ marginTop: 8, opacity: 0.85 }}>
         Pulling live from the Pokémon TCG API.
       </p>
 
       <div className="grid" style={{ marginTop: 18 }}>
         {sets.slice(0, 60).map((s: any) => (
-          <div key={s.id} className="tile">
+          <a key={s.id} className="tile" href={`/pokemon/sets/${s.id}`}>
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
               {s.images?.symbol ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -41,6 +41,7 @@ export default async function PokemonSetsPage() {
                   style={{ borderRadius: 8, opacity: 0.95 }}
                 />
               ) : null}
+
               <div>
                 <div style={{ fontWeight: 700 }}>{s.name}</div>
                 <div style={{ fontSize: 13, opacity: 0.75 }}>
@@ -48,7 +49,7 @@ export default async function PokemonSetsPage() {
                 </div>
               </div>
             </div>
-          </div>
+          </a>
         ))}
       </div>
 
