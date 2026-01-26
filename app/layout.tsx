@@ -19,6 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           <nav style={{ display: "flex", gap: 24 }}>
             <a href="/games">Games</a>
+            <a href="/pokemon/sets">Pokémon</a>
             <a href="/me">My Collection</a>
             <a href="/login">Login</a>
           </nav>
