@@ -14,8 +14,9 @@ async function getSets() {
 }
 
 export default async function PokemonSetsPage() {
-  const json = await getSets();
-  const sets = json?.data ?? [];
+  const json: any = await getSets();
+  const sets = (json?.data ?? []) as any[];
+
 
   return (
     <div className="page">
