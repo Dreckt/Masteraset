@@ -13,29 +13,10 @@ type SetRow = {
   images?: { symbol?: string; logo?: string };
 };
 
-async function fetchWithTimeout(
-  url: string,
-  headers: Record<string, string>,
-  timeoutMs: number
-) {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { headers, signal: controller.signal });
-  } finally {
-    clearTimeout(t);
-  }
-}
-
 export async function POST(req: Request) {
   try {
     const { env } = getRequestContext();
     const db = (env as unknown as CloudflareEnv).DB;
-
-    const apiKey = (env as unknown as CloudflareEnv).POKEMONTCG_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "POKEMONTCG_API_KEY missing" }, { status: 500 });
-    }
 
     // auth
     const url = new URL(req.url);
@@ -45,30 +26,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // import controls (start simple)
-    const page = Math.max(Number(url.searchParams.get("page") ?? 1), 1);
-    const pageSize = Math.min(Math.max(Number(url.searchParams.get("pageSize") ?? 50), 10), 250);
-    const timeoutMs = Math.min(Math.max(Number(url.searchParams.get("timeoutMs") ?? 12000), 3000), 20000);
-
-    const upstream = `https://api.pokemontcg.io/v2/sets?page=${page}&pageSize=${pageSize}`;
-    const res = await fetchWithTimeout(
-      upstream,
-      { "X-Api-Key": apiKey, Accept: "application/json" },
-      timeoutMs
-    );
-
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
+    // Expect JSON body: { data: SetRow[] }
+    const contentType = req.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
       return NextResponse.json(
-        { error: "Upstream failed", status: res.status, page, pageSize, bodyPreview: body.slice(0, 200) },
-        { status: res.status }
+        {
+          error: "Send JSON body: { data: [...] }",
+          example: { data: [{ id: "base1", name: "Base" }] },
+        },
+        { status: 400 }
       );
     }
 
-    const json = (await res.json()) as { data?: SetRow[] };
-    const sets = json.data ?? [];
+    const body = (await req.json()) as { data?: SetRow[] };
+    const sets = body.data ?? [];
 
-    // Create table
+    if (!Array.isArray(sets) || sets.length === 0) {
+      return NextResponse.json({ error: "No data[] provided" }, { status: 400 });
+    }
+
     await db.exec(`
       CREATE TABLE IF NOT EXISTS pokemon_sets (
         id TEXT PRIMARY KEY,
@@ -104,7 +80,7 @@ export async function POST(req: Request) {
 
     let imported = 0;
 
-    // IMPORTANT: run statements one-by-one (no db.batch) to avoid adapter issues
+    // reliable inserts (no db.batch)
     for (const s of sets) {
       if (!s?.id) continue;
       await stmt
@@ -124,20 +100,11 @@ export async function POST(req: Request) {
       imported++;
     }
 
-    return NextResponse.json(
-      { ok: true, page, pageSize, imported },
-      { status: 200 }
-    );
+    return NextResponse.json({ ok: true, imported }, { status: 200 });
   } catch (err: any) {
-    const msg = err?.message ?? String(err);
-    const isAbort =
-      err?.name === "AbortError" ||
-      msg.toLowerCase().includes("aborted") ||
-      msg.toLowerCase().includes("timeout");
-
     return NextResponse.json(
-      { error: isAbort ? "Import timed out" : msg },
-      { status: isAbort ? 504 : 500 }
+      { error: err?.message ?? "Unknown error" },
+      { status: 500 }
     );
   }
 }
