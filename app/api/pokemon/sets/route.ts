@@ -6,7 +6,7 @@ export const runtime = "edge";
 export async function GET() {
   try {
     const { env } = getRequestContext();
-    const db = env.DB as D1Database;
+    const db = (env as unknown as CloudflareEnv).DB;
 
     const rows = await db
       .prepare(

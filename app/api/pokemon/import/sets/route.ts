@@ -6,16 +6,17 @@ export const runtime = "edge";
 export async function POST(req: Request) {
   try {
     const { env } = getRequestContext();
-    const db = env.DB as D1Database;
+    const db = (env as unknown as CloudflareEnv).DB;
 
-    const apiKey = env.POKEMONTCG_API_KEY as string | undefined;
+    const apiKey = (env as unknown as CloudflareEnv).POKEMONTCG_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: "POKEMONTCG_API_KEY missing" }, { status: 500 });
     }
 
+    // Optional protection
     const url = new URL(req.url);
     const token = url.searchParams.get("token");
-    const expected = env.ADMIN_IMPORT_TOKEN as string | undefined;
+    const expected = (env as unknown as CloudflareEnv).ADMIN_IMPORT_TOKEN;
     if (expected && token !== expected) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

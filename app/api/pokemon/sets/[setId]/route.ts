@@ -9,7 +9,7 @@ export async function GET(
 ) {
   try {
     const { env } = getRequestContext();
-    const db = env.DB as D1Database;
+    const db = (env as unknown as CloudflareEnv).DB;
 
     const row = await db
       .prepare(
@@ -22,7 +22,10 @@ export async function GET(
       .first();
 
     if (!row) {
-      return NextResponse.json({ error: "Set not found in cache. Run import." }, { status: 404 });
+      return NextResponse.json(
+        { error: "Set not found in cache. Run import." },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json(
