@@ -3,42 +3,77 @@ import { getRequestContext } from "@cloudflare/next-on-pages";
 
 export const runtime = "edge";
 
-export async function GET() {
+async function fetchWithTimeout(url: string, apiKey: string, timeoutMs: number) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const { env } = getRequestContext();
-    const db = (env as unknown as CloudflareEnv).DB;
+    return await fetch(url, {
+      headers: { "X-Api-Key": apiKey, Accept: "application/json" },
+      signal: controller.signal,
+      cache: "no-store",
+    });
+  } finally {
+    clearTimeout(t);
+  }
+}
 
+export async function GET(req: Request) {
+  const { env } = getRequestContext();
+  const db = (env as unknown as CloudflareEnv).DB;
+  const apiKey = (env as unknown as CloudflareEnv).POKEMONTCG_API_KEY;
+
+  // 1) Try D1 first (fast)
+  try {
     const rows = await db
       .prepare(
-        `SELECT id, name, series, releaseDate, printedTotal, total,
-                images_symbol AS symbol, images_logo AS logo
+        `SELECT id, name, series, releaseDate, printedTotal, total, images_symbol as symbol, images_logo as logo
          FROM pokemon_sets
          ORDER BY releaseDate ASC`
       )
       .all();
 
-    const data = (rows.results ?? []).map((r: any) => ({
-      id: r.id,
-      name: r.name,
-      series: r.series,
-      releaseDate: r.releaseDate,
-      printedTotal: r.printedTotal,
-      total: r.total,
-      images: { symbol: r.symbol, logo: r.logo },
-    }));
+    if (rows?.results?.length) {
+      const data = rows.results.map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        series: r.series,
+        releaseDate: r.releaseDate,
+        printedTotal: r.printedTotal,
+        total: r.total,
+        images: { symbol: r.symbol, logo: r.logo },
+      }));
+      return NextResponse.json({ data, source: "d1" }, { status: 200 });
+    }
+  } catch {
+    // table missing -> fall through to upstream
+  }
 
-    if (data.length === 0) {
+  // 2) Fallback to upstream if D1 missing/empty
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: "POKEMONTCG_API_KEY missing and no cached sets in D1." },
+      { status: 500 }
+    );
+  }
+
+  const upstream = "https://api.pokemontcg.io/v2/sets?page=1&pageSize=250";
+  try {
+    const res = await fetchWithTimeout(upstream, apiKey, 12000);
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
       return NextResponse.json(
-        { error: "No cached Pokémon sets yet. Run import." },
-        { status: 503 }
+        { error: "Upstream failed", status: res.status, bodyPreview: txt.slice(0, 200) },
+        { status: 502 }
       );
     }
 
-    return NextResponse.json({ data }, { status: 200 });
+    const json = await res.json();
+    return NextResponse.json({ ...json, source: "upstream" }, { status: 200 });
   } catch (err: any) {
+    const msg = err?.name === "AbortError" ? "Upstream timed out" : (err?.message ?? "Upstream error");
     return NextResponse.json(
-      { error: err?.message ?? "DB error reading pokemon_sets" },
-      { status: 500 }
+      { error: msg, upstream, hint: "Try again later; upstream is returning 504s right now." },
+      { status: 504 }
     );
   }
 }
