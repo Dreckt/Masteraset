@@ -38,9 +38,10 @@ async function getSet(setId: string): Promise<PokemonSet | null> {
 
 async function getCards(setId: string, pageSize = 50): Promise<PokemonCard[]> {
   const origin = getOrigin();
-  const res = await fetch(`${origin}/api/pokemon/cards?setId=${encodeURIComponent(setId)}&pageSize=${pageSize}`, {
-    cache: "no-store",
-  });
+  const res = await fetch(
+    `${origin}/api/pokemon/cards?setId=${encodeURIComponent(setId)}&pageSize=${pageSize}`,
+    { cache: "no-store" }
+  );
   if (!res.ok) throw new Error(`Failed to load cards for ${setId}: ${res.status}`);
   const json = (await res.json()) as { data?: PokemonCard[] };
   return json?.data ?? [];
@@ -58,12 +59,8 @@ export default async function PokemonSetPage({
     return (
       <main style={{ padding: 24 }}>
         <h1>Set not found</h1>
-        <p>
-          No Pokémon set found for id: <code>{setId}</code>
-        </p>
-        <p>
-          <a href="/pokemon/sets">Back to sets</a>
-        </p>
+        <p>No Pokémon set found for id: <code>{setId}</code></p>
+        <p><a href="/pokemon/sets">Back to sets</a></p>
       </main>
     );
   }
@@ -72,46 +69,22 @@ export default async function PokemonSetPage({
 
   return (
     <main style={{ padding: 24 }}>
-      <p>
-        <a href="/pokemon/sets">← Back to sets</a>
-      </p>
+      <p><a href="/pokemon/sets">← Back to sets</a></p>
 
       <h1>{set.name}</h1>
 
       <div style={{ marginTop: 12, opacity: 0.85 }}>
-        <div>
-          <strong>ID:</strong> {set.id}
-        </div>
-        {set.series && (
-          <div>
-            <strong>Series:</strong> {set.series}
-          </div>
-        )}
-        {set.releaseDate && (
-          <div>
-            <strong>Release:</strong> {set.releaseDate}
-          </div>
-        )}
-        {typeof set.printedTotal === "number" && (
-          <div>
-            <strong>Printed Total:</strong> {set.printedTotal}
-          </div>
-        )}
-        {typeof set.total === "number" && (
-          <div>
-            <strong>Total Cards:</strong> {set.total}
-          </div>
-        )}
+        <div><strong>ID:</strong> {set.id}</div>
+        {set.series && <div><strong>Series:</strong> {set.series}</div>}
+        {set.releaseDate && <div><strong>Release:</strong> {set.releaseDate}</div>}
+        {typeof set.printedTotal === "number" && <div><strong>Printed Total:</strong> {set.printedTotal}</div>}
+        {typeof set.total === "number" && <div><strong>Total Cards:</strong> {set.total}</div>}
       </div>
 
       {(set.images?.logo || set.images?.symbol) && (
         <div style={{ marginTop: 16, display: "flex", gap: 16, alignItems: "center" }}>
-          {set.images?.symbol && (
-            <img src={set.images.symbol} alt="Set symbol" style={{ height: 64 }} />
-          )}
-          {set.images?.logo && (
-            <img src={set.images.logo} alt="Set logo" style={{ height: 64 }} />
-          )}
+          {set.images?.symbol && <img src={set.images.symbol} alt="Set symbol" style={{ height: 64 }} />}
+          {set.images?.logo && <img src={set.images.logo} alt="Set logo" style={{ height: 64 }} />}
         </div>
       )}
 
@@ -131,19 +104,27 @@ export default async function PokemonSetPage({
         }}
       >
         {cards.map((c) => (
-          <div key={c.id} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12 }}>
-            {c.images?.small && (
-              <img src={c.images.small} alt={c.name} style={{ width: "100%", borderRadius: 8 }} />
-            )}
-            <div style={{ marginTop: 8 }}>
-              <strong>{c.name}</strong>
-              <div style={{ opacity: 0.75, fontSize: 13 }}>
-                {c.number ? `#${c.number}` : ""}{c.rarity ? ` • ${c.rarity}` : ""}
+          <a
+            key={c.id}
+            href={`/pokemon/cards/${c.id}`}
+            style={{ textDecoration: "none", color: "inherit" }}
+          >
+            <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12 }}>
+              {c.images?.small && (
+                <img src={c.images.small} alt={c.name} style={{ width: "100%", borderRadius: 8 }} />
+              )}
+              <div style={{ marginTop: 8 }}>
+                <strong>{c.name}</strong>
+                <div style={{ opacity: 0.75, fontSize: 13 }}>
+                  {c.number ? `#${c.number}` : ""}
+                  {c.rarity ? ` • ${c.rarity}` : ""}
+                </div>
               </div>
             </div>
-          </div>
+          </a>
         ))}
       </div>
     </main>
   );
 }
+
