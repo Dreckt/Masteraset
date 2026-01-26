@@ -1,19 +1,21 @@
 import { NextResponse } from "next/server";
+import { getRequestContext } from "@cloudflare/next-on-pages";
 
 export const runtime = "edge";
 
-type Env = { DB: D1Database };
-
 export async function GET() {
-  const env = (process.env as any) as Env;
-
   try {
-    const rows = await env.DB.prepare(
-      `SELECT id, name, series, releaseDate, printedTotal, total,
-              images_symbol AS symbol, images_logo AS logo
-       FROM pokemon_sets
-       ORDER BY releaseDate ASC`
-    ).all();
+    const { env } = getRequestContext();
+    const db = env.DB as D1Database;
+
+    const rows = await db
+      .prepare(
+        `SELECT id, name, series, releaseDate, printedTotal, total,
+                images_symbol AS symbol, images_logo AS logo
+         FROM pokemon_sets
+         ORDER BY releaseDate ASC`
+      )
+      .all();
 
     const data = (rows.results ?? []).map((r: any) => ({
       id: r.id,
@@ -27,10 +29,7 @@ export async function GET() {
 
     if (data.length === 0) {
       return NextResponse.json(
-        {
-          error: "No cached Pokémon sets yet.",
-          hint: "Run POST /api/pokemon/import/sets?token=YOUR_TOKEN",
-        },
+        { error: "No cached Pokémon sets yet. Run import." },
         { status: 503 }
       );
     }

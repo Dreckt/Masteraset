@@ -1,31 +1,29 @@
 import { NextResponse } from "next/server";
+import { getRequestContext } from "@cloudflare/next-on-pages";
 
 export const runtime = "edge";
 
-type Env = { DB: D1Database };
-
 export async function POST(req: Request) {
-  const env = (process.env as any) as Env;
-
   try {
-    const apiKey = process.env.POKEMONTCG_API_KEY;
+    const { env } = getRequestContext();
+    const db = env.DB as D1Database;
+
+    const apiKey = env.POKEMONTCG_API_KEY as string | undefined;
     if (!apiKey) {
       return NextResponse.json({ error: "POKEMONTCG_API_KEY missing" }, { status: 500 });
     }
 
-    // optional simple protection
     const url = new URL(req.url);
     const token = url.searchParams.get("token");
-    const expected = process.env.ADMIN_IMPORT_TOKEN;
+    const expected = env.ADMIN_IMPORT_TOKEN as string | undefined;
     if (expected && token !== expected) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Fetch sets list from upstream (one call)
     const upstream = "https://api.pokemontcg.io/v2/sets";
 
     const controller = new AbortController();
-    const timeoutMs = 60000; // batch job timeout
+    const timeoutMs = 60000;
     const t = setTimeout(() => controller.abort(), timeoutMs);
 
     const res = await fetch(upstream, {
@@ -46,8 +44,7 @@ export async function POST(req: Request) {
     const json = (await res.json()) as { data?: any[] };
     const sets = json.data ?? [];
 
-    // Create table if needed
-    await env.DB.exec(`
+    await db.exec(`
       CREATE TABLE IF NOT EXISTS pokemon_sets (
         id TEXT PRIMARY KEY,
         name TEXT,
@@ -64,8 +61,7 @@ export async function POST(req: Request) {
 
     const now = new Date().toISOString();
 
-    // Upsert rows
-    const stmt = env.DB.prepare(`
+    const stmt = db.prepare(`
       INSERT INTO pokemon_sets
         (id, name, series, releaseDate, printedTotal, total, images_symbol, images_logo, raw_json, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -84,7 +80,6 @@ export async function POST(req: Request) {
     const batch: D1PreparedStatement[] = [];
     for (const s of sets) {
       if (!s?.id) continue;
-
       batch.push(
         stmt.bind(
           s.id,
@@ -101,7 +96,7 @@ export async function POST(req: Request) {
       );
     }
 
-    await env.DB.batch(batch);
+    await db.batch(batch);
 
     return NextResponse.json({ ok: true, imported: batch.length }, { status: 200 });
   } catch (err: any) {
