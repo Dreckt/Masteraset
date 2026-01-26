@@ -1,7 +1,7 @@
 export const runtime = "edge";
 
-import { headers } from "next/headers";
 import CardsGrid from "./CardsGrid";
+import { headers } from "next/headers";
 
 type PokemonSet = {
   id: string;
@@ -21,14 +21,20 @@ function getOrigin() {
 }
 
 async function getSet(setId: string): Promise<PokemonSet | null> {
-  const origin = getOrigin();
-  const res = await fetch(`${origin}/api/pokemon/sets/${setId}`, { cache: "no-store" });
+  try {
+    const origin = getOrigin();
+    const res = await fetch(`${origin}/api/pokemon/sets/${encodeURIComponent(setId)}`, {
+      cache: "no-store",
+    });
 
-  if (res.status === 404) return null;
-  if (!res.ok) return null;
+    if (res.status === 404) return null;
+    if (!res.ok) return null;
 
-  const json = (await res.json()) as { data?: PokemonSet };
-  return json?.data ?? null;
+    const json = (await res.json()) as { data?: PokemonSet };
+    return json?.data ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export default async function PokemonSetPage({
@@ -92,14 +98,7 @@ export default async function PokemonSetPage({
       </div>
 
       {(set.images?.logo || set.images?.symbol) && (
-        <div
-          style={{
-            marginTop: 16,
-            display: "flex",
-            gap: 16,
-            alignItems: "center",
-          }}
-        >
+        <div style={{ marginTop: 16, display: "flex", gap: 16, alignItems: "center" }}>
           {set.images?.symbol && (
             <img src={set.images.symbol} alt="Set symbol" style={{ height: 64 }} />
           )}
@@ -111,9 +110,7 @@ export default async function PokemonSetPage({
 
       <hr style={{ margin: "24px 0" }} />
 
-      {/* Cards load client-side so this page never blocks or crashes */}
       <CardsGrid setId={setId} />
     </main>
   );
 }
-
