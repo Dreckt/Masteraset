@@ -1,116 +1,85 @@
-export const runtime = "edge";
-
-import CardsGrid from "./CardsGrid";
 import { headers } from "next/headers";
+import CardsGrid from "./CardsGrid";
+
+export const runtime = "edge";
 
 type PokemonSet = {
   id: string;
   name: string;
-  series?: string;
-  releaseDate?: string;
-  printedTotal?: number;
-  total?: number;
-  images?: { symbol?: string; logo?: string };
+  series: string | null;
+  releaseDate: string | null;
+  printedTotal: number | null;
+  total: number | null;
+  images: { symbol: string | null; logo: string | null };
+  updatedAt: string | null;
 };
 
-function getOrigin() {
+function getOriginFromHeaders() {
   const h = headers();
-  const host = h.get("host");
-  const proto = h.get("x-forwarded-proto") ?? "https";
+  const host = h.get("x-forwarded-host") || h.get("host") || "masteraset.com";
+  const proto = h.get("x-forwarded-proto") || "https";
   return `${proto}://${host}`;
 }
 
-async function getSet(setId: string): Promise<PokemonSet | null> {
-  try {
-    const origin = getOrigin();
-    const res = await fetch(`${origin}/api/pokemon/sets/${encodeURIComponent(setId)}`, {
-      cache: "no-store",
-    });
-
-    if (res.status === 404) return null;
-    if (!res.ok) return null;
-
-    const json = (await res.json()) as { data?: PokemonSet };
-    return json?.data ?? null;
-  } catch {
-    return null;
-  }
-}
-
-export default async function PokemonSetPage({
-  params,
-}: {
-  params: { setId: string };
-}) {
+export default async function PokemonSetPage({ params }: { params: { setId: string } }) {
+  const origin = getOriginFromHeaders();
   const setId = params.setId;
-  const set = await getSet(setId);
 
-  if (!set) {
+  const res = await fetch(`${origin}/api/pokemon/sets/${encodeURIComponent(setId)}`, {
+    headers: { accept: "application/json" },
+  });
+
+  const payload = await res.json().catch(() => null);
+
+  if (!res.ok) {
     return (
-      <main style={{ padding: 24 }}>
-        <h1>Set not found</h1>
-        <p>
-          No Pokémon set found for id: <code>{setId}</code>
+      <main className="ms-container" style={{ paddingTop: 24, paddingBottom: 40 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 10 }}>Pokémon Set</h1>
+        <p style={{ color: "var(--ms-muted)" }}>
+          Couldn’t load set <code>{setId}</code>.
         </p>
-        <p>
-          <a href="/pokemon/sets">Back to sets</a>
-        </p>
+        <pre
+          style={{
+            marginTop: 12,
+            padding: 12,
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 12,
+            overflowX: "auto",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            fontSize: 12,
+            lineHeight: 1.35,
+          }}
+        >
+          {JSON.stringify({ status: res.status, payload }, null, 2)}
+        </pre>
       </main>
     );
   }
 
+  const set = (payload?.data ?? payload) as PokemonSet;
+
   return (
-    <main style={{ padding: 24 }}>
-      <p>
-        <a href="/pokemon/sets">← Back to sets</a>
-      </p>
-
-      <h1>{set.name}</h1>
-
-      <div style={{ marginTop: 12, opacity: 0.85 }}>
+    <main className="ms-container" style={{ paddingTop: 24, paddingBottom: 40 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <div>
-          <strong>ID:</strong> {set.id}
+          <div style={{ color: "var(--ms-muted)", fontSize: 13, marginBottom: 6 }}>Pokémon • Sets</div>
+          <h1 style={{ fontSize: 26, fontWeight: 900, margin: 0 }}>{set?.name ?? setId}</h1>
+          <div style={{ color: "var(--ms-muted)", marginTop: 6, fontSize: 13, lineHeight: 1.4 }}>
+            {set?.series ? <span style={{ marginRight: 10 }}>{set.series}</span> : null}
+            {set?.releaseDate ? <span style={{ marginRight: 10 }}>Release: {set.releaseDate}</span> : null}
+            {typeof set?.total === "number" ? <span>Total: {set.total}</span> : null}
+          </div>
         </div>
 
-        {set.series && (
-          <div>
-            <strong>Series:</strong> {set.series}
-          </div>
-        )}
-
-        {set.releaseDate && (
-          <div>
-            <strong>Release:</strong> {set.releaseDate}
-          </div>
-        )}
-
-        {typeof set.printedTotal === "number" && (
-          <div>
-            <strong>Printed Total:</strong> {set.printedTotal}
-          </div>
-        )}
-
-        {typeof set.total === "number" && (
-          <div>
-            <strong>Total Cards:</strong> {set.total}
-          </div>
-        )}
+        <a className="ms-chip" href="/pokemon/sets" style={{ textDecoration: "none", color: "inherit", whiteSpace: "nowrap" }}>
+          ← Back to sets
+        </a>
       </div>
 
-      {(set.images?.logo || set.images?.symbol) && (
-        <div style={{ marginTop: 16, display: "flex", gap: 16, alignItems: "center" }}>
-          {set.images?.symbol && (
-            <img src={set.images.symbol} alt="Set symbol" style={{ height: 64 }} />
-          )}
-          {set.images?.logo && (
-            <img src={set.images.logo} alt="Set logo" style={{ height: 64 }} />
-          )}
-        </div>
-      )}
-
-      <hr style={{ margin: "24px 0" }} />
-
-      <CardsGrid setId={setId} />
+      <div style={{ marginTop: 18 }}>
+        <CardsGrid setId={setId} />
+      </div>
     </main>
   );
 }

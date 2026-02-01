@@ -1,133 +1,143 @@
-"use client";
+import { headers } from "next/headers";
 
-import { useEffect, useState } from "react";
+export const runtime = "edge";
 
-type PokemonCard = {
+type CardRow = {
   id: string;
   name: string;
-  number?: string;
-  rarity?: string;
-  images?: {
-    small?: string;
-    large?: string;
-  };
+  number: string | null;
+  rarity: string | null;
+  image_small: string | null;
+  image_large: string | null;
 };
 
-export default function CardsGrid({ setId }: { setId: string }) {
-  const [cards, setCards] = useState<PokemonCard[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+function getOriginFromHeaders() {
+  const h = headers();
+  const host = h.get("x-forwarded-host") || h.get("host") || "masteraset.com";
+  const proto = h.get("x-forwarded-proto") || "https";
+  return `${proto}://${host}`;
+}
 
-  // Start small so loads are fast (paging comes later)
-  const PAGE_SIZE = 24;
+export default async function CardsGrid({ setId }: { setId: string }) {
+  const origin = getOriginFromHeaders();
 
-  useEffect(() => {
-    let cancelled = false;
+  const res = await fetch(`${origin}/api/pokemon/cards?setId=${encodeURIComponent(setId)}`, {
+    headers: { accept: "application/json" },
+  });
 
-    async function loadCards() {
-      try {
-        setLoading(true);
-        setError(null);
+  const payload = await res.json().catch(() => null);
 
-        const res = await fetch(
-          `/api/pokemon/cards?setId=${encodeURIComponent(setId)}&pageSize=${PAGE_SIZE}`,
-          { cache: "no-store" }
-        );
-
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`Cards API ${res.status}: ${text.slice(0, 150)}`);
-        }
-
-        const json = (await res.json()) as { data?: PokemonCard[] };
-
-        if (!cancelled) {
-          setCards(json.data ?? []);
-        }
-      } catch (e: any) {
-        if (!cancelled) {
-          setError(e?.message || "Failed to load cards");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    loadCards();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [setId]);
-
-  return (
-    <section>
-      <h2>Cards</h2>
-
-      {loading && (
-        <p style={{ opacity: 0.75, marginTop: 8 }}>
-          Loading cards…
-        </p>
-      )}
-
-      {error && (
-        <p style={{ color: "crimson", marginTop: 8 }}>
-          Failed to load cards: {error}
-        </p>
-      )}
-
-      {!loading && !error && (
-        <div
+  if (!res.ok) {
+    return (
+      <div
+        style={{
+          marginTop: 12,
+          padding: 12,
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: 12,
+          background: "rgba(11,14,20,0.35)",
+        }}
+      >
+        <div style={{ fontWeight: 800, marginBottom: 6 }}>Couldn’t load cards</div>
+        <pre
           style={{
-            marginTop: 16,
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-            gap: 12,
+            margin: 0,
+            overflowX: "auto",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            fontSize: 12,
+            lineHeight: 1.35,
           }}
         >
-          {cards.map((c) => (
-            <a
-              key={c.id}
-              href={`/pokemon/cards/${c.id}`}
-              style={{ textDecoration: "none", color: "inherit" }}
-            >
-              <div
+          {JSON.stringify({ status: res.status, payload }, null, 2)}
+        </pre>
+      </div>
+    );
+  }
+
+  const rows = (payload?.data ?? []) as CardRow[];
+
+  if (rows.length === 0) {
+    return (
+      <div
+        style={{
+          marginTop: 12,
+          padding: 16,
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: 16,
+          background: "rgba(11,14,20,0.35)",
+        }}
+      >
+        <div style={{ fontWeight: 800, marginBottom: 6 }}>No cards loaded yet</div>
+        <div style={{ color: "var(--ms-muted)" }}>Import cards for this set using your admin/CSV import flow.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: 12,
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
+        gap: 12,
+      }}
+    >
+      {rows.map((c) => (
+        <a
+          key={c.id}
+          href={`/pokemon/cards/${encodeURIComponent(c.id)}`}
+          style={{
+            display: "block",
+            padding: 12,
+            borderRadius: 16,
+            border: "1px solid rgba(255,255,255,0.10)",
+            background: "rgba(11,14,20,0.35)",
+            textDecoration: "none",
+            color: "inherit",
+          }}
+        >
+          <div style={{ fontWeight: 800, marginBottom: 6, lineHeight: 1.15 }}>{c.name}</div>
+
+          <div style={{ color: "var(--ms-muted)", fontSize: 12, lineHeight: 1.3 }}>
+            {c.number ? <div>No. {c.number}</div> : null}
+            {c.rarity ? <div>{c.rarity}</div> : null}
+          </div>
+
+          {c.image_small ? (
+            <div style={{ marginTop: 10 }}>
+              <img
+                src={c.image_small}
+                alt={c.name}
                 style={{
-                  border: "1px solid #ddd",
+                  width: "100%",
+                  height: "auto",
                   borderRadius: 12,
-                  padding: 12,
-                  background: "#fff",
-                  transition: "transform .15s ease, box-shadow .15s ease",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "rgba(0,0,0,0.2)",
                 }}
-              >
-                {c.images?.small && (
-                  <img
-                    src={c.images.small}
-                    alt={c.name}
-                    loading="lazy"
-                    style={{
-                      width: "100%",
-                      borderRadius: 8,
-                      background: "#f3f3f3",
-                    }}
-                  />
-                )}
-
-                <div style={{ marginTop: 8 }}>
-                  <strong>{c.name}</strong>
-
-                  <div style={{ opacity: 0.75, fontSize: 13 }}>
-                    {c.number ? `#${c.number}` : ""}
-                    {c.rarity ? ` • ${c.rarity}` : ""}
-                  </div>
-                </div>
-              </div>
-            </a>
-          ))}
-        </div>
-      )}
-    </section>
+                loading="lazy"
+              />
+            </div>
+          ) : (
+            <div
+              style={{
+                marginTop: 10,
+                height: 210,
+                borderRadius: 12,
+                border: "1px dashed rgba(255,255,255,0.18)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--ms-muted)",
+                fontSize: 12,
+              }}
+            >
+              No image
+            </div>
+          )}
+        </a>
+      ))}
+    </div>
   );
 }
