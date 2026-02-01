@@ -21,7 +21,7 @@ export default function AdminImportPage() {
     setResult(null);
 
     if (!token.trim()) {
-      setError("Please enter your admin token.");
+      setError("Please enter your admin import token.");
       return;
     }
     if (!file) {
@@ -29,7 +29,6 @@ export default function AdminImportPage() {
       return;
     }
 
-    // This implementation supports Cards right now (your Base Set import)
     if (importType !== "cards") {
       setError(
         "This upload importer is currently enabled for Cards only. (Sets/Printings can be added next.)"
@@ -74,24 +73,23 @@ export default function AdminImportPage() {
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
       <h1 className="text-3xl font-semibold tracking-tight">Admin Import</h1>
       <p className="mt-2 text-sm text-neutral-400">
-        Upload a CSV and import it into D1. (This page is intentionally not
-        linked from the homepage.)
+        Upload a CSV and import it into D1. (This page is intentionally not linked from the homepage.)
       </p>
 
       <div className="mt-8 space-y-6 rounded-2xl border border-white/10 bg-black/30 p-6 shadow">
         <div className="space-y-2">
-          <label className="text-sm font-medium">Admin token</label>
+          <label className="text-sm font-medium">Admin import token</label>
           <input
             className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm outline-none focus:border-white/20"
             type="password"
             value={token}
             onChange={(e) => setToken(e.target.value)}
-            placeholder="Paste ADMIN_TOKEN"
+            placeholder="Paste ADMIN_IMPORT_TOKEN"
             autoComplete="off"
           />
           <p className="text-xs text-neutral-500">
             Must match the{" "}
-            <code className="rounded bg-white/10 px-1 py-0.5">ADMIN_TOKEN</code>{" "}
+            <code className="rounded bg-white/10 px-1 py-0.5">ADMIN_IMPORT_TOKEN</code>{" "}
             secret in Cloudflare Pages.
           </p>
         </div>
@@ -162,8 +160,7 @@ export default function AdminImportPage() {
                 <span className="opacity-80">type:</span> {result.type}
               </div>
               <div>
-                <span className="opacity-80">parsed rows:</span>{" "}
-                {result.parsedRows}
+                <span className="opacity-80">parsed rows:</span> {result.parsedRows}
               </div>
               <div>
                 <span className="opacity-80">inserted:</span> {result.inserted}
@@ -185,32 +182,6 @@ export default function AdminImportPage() {
             ) : null}
           </div>
         ) : null}
-      </div>
-
-      <div className="mt-10 text-xs text-neutral-500">
-        <div className="font-semibold text-neutral-400">
-          Cards CSV required columns
-        </div>
-        <ul className="mt-2 list-disc space-y-1 pl-6">
-          <li>
-            <code className="rounded bg-white/10 px-1 py-0.5">game_id</code>{" "}
-            (required)
-          </li>
-          <li>
-            <code className="rounded bg-white/10 px-1 py-0.5">
-              canonical_name
-            </code>{" "}
-            (required)
-          </li>
-          <li>
-            <code className="rounded bg-white/10 px-1 py-0.5">name_sort</code>{" "}
-            (required)
-          </li>
-          <li>
-            All other columns are optional (set_name, card_id, card_name, rarity,
-            year, image_*).
-          </li>
-        </ul>
       </div>
     </div>
   );
