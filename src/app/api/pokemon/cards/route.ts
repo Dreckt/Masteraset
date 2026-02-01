@@ -1,75 +1,112 @@
 import { NextResponse } from "next/server";
+import { getRequestContext } from "@cloudflare/next-on-pages";
 
 export const runtime = "edge";
 
+type PokemonCardRow = {
+  id: string;
+  name: string;
+  number?: string | null;
+  rarity?: string | null;
+  setId: string;
+  setName?: string | null;
+  imageSmall?: string | null;
+  imageLarge?: string | null;
+};
+
+function intParam(value: string | null, fallback: number) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
 export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const setId = url.searchParams.get("setId")?.trim() || "";
+  const page = intParam(url.searchParams.get("page"), 1);
+  const pageSize = Math.min(intParam(url.searchParams.get("pageSize"), 25), 250);
+  const offset = (page - 1) * pageSize;
+
+  // This endpoint is intentionally KEYLESS.
+  // It should never require pokemontcg.io or any API key.
+  if (!setId) {
+    return NextResponse.json(
+      { error: "Missing required query param: setId" },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  // D1 first
   try {
-    const apiKey = process.env.POKEMONTCG_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "API key missing" }, { status: 500 });
-    }
+    const { env } = getRequestContext();
+    const db: D1Database | undefined = (env as any)?.DB;
 
-    const url = new URL(req.url);
-    const setId = url.searchParams.get("setId");
-    const pageSizeRaw = url.searchParams.get("pageSize") ?? "24";
-    const pageRaw = url.searchParams.get("page") ?? "1";
-
-    if (!setId) {
-      return NextResponse.json({ error: "Missing setId" }, { status: 400 });
-    }
-
-    // Clamp to safe values (PokemonTCG supports up to 250)
-    const pageSize = Math.min(Math.max(parseInt(pageSizeRaw, 10) || 24, 1), 250);
-    const page = Math.max(parseInt(pageRaw, 10) || 1, 1);
-
-    const upstream = new URL("https://api.pokemontcg.io/v2/cards");
-    upstream.searchParams.set("q", `set.id:${setId}`);
-    upstream.searchParams.set("pageSize", String(pageSize));
-    upstream.searchParams.set("page", String(page));
-
-    // Add a timeout so requests never hang for minutes
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 12000);
-
-    const res = await fetch(upstream.toString(), {
-      headers: {
-        "X-Api-Key": apiKey,
-        "Accept": "application/json",
-      },
-      signal: controller.signal,
-    });
-
-    clearTimeout(t);
-
-    const body = await res.text();
-
-    // Pass through upstream errors but include context (helps debugging)
-    if (!res.ok) {
+    if (!db) {
       return NextResponse.json(
         {
-          error: "Upstream PokemonTCG request failed",
-          status: res.status,
-          upstream: upstream.toString(),
-          bodyPreview: body.slice(0, 300),
+          source: "stub",
+          count: 0,
+          data: [],
+          warning: "D1 binding not found (expected env.DB). Endpoint is keyless and safe.",
         },
-        { status: res.status }
+        { status: 200, headers: { "cache-control": "no-store" } }
       );
     }
 
-    return new NextResponse(body, {
-      status: 200,
-      headers: {
-        "content-type": res.headers.get("content-type") ?? "application/json; charset=utf-8",
-        // you can tune caching later; for now keep it uncached
-        "cache-control": "no-store",
-      },
-    });
-  } catch (err: any) {
-    const msg =
-      err?.name === "AbortError"
-        ? "Timeout fetching from PokemonTCG API"
-        : err?.message ?? String(err);
+    // Expecting a table like:
+    // pokemon_cards(id TEXT PRIMARY KEY, setId TEXT, name TEXT, number TEXT, rarity TEXT, imageSmall TEXT, imageLarge TEXT, ...)
+    const result = await db
+      .prepare(
+        `
+        SELECT
+          id,
+          name,
+          number,
+          rarity,
+          setId,
+          setName,
+          imageSmall,
+          imageLarge
+        FROM pokemon_cards
+        WHERE setId = ?
+        ORDER BY
+          CASE
+            WHEN number GLOB '[0-9]*' THEN CAST(number AS INTEGER)
+            ELSE 999999
+          END ASC,
+          number ASC,
+          name ASC
+        LIMIT ? OFFSET ?;
+        `
+      )
+      .bind(setId, pageSize, offset)
+      .all<PokemonCardRow>();
 
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const rows = (result.results ?? []) as PokemonCardRow[];
+
+    return NextResponse.json(
+      {
+        source: "db",
+        setId,
+        page,
+        pageSize,
+        count: rows.length,
+        data: rows,
+      },
+      { status: 200, headers: { "cache-control": "no-store" } }
+    );
+  } catch (err: any) {
+    // If the table doesn't exist yet (your current situation), do NOT throw a 500.
+    // Return a safe stub response so pages can render.
+    const msg = String(err?.message || err || "Unknown error");
+    return NextResponse.json(
+      {
+        source: "stub",
+        count: 0,
+        data: [],
+        warning: "Cards table not available yet (pokemon_cards). This endpoint is now keyless and safe.",
+        detail: msg,
+      },
+      { status: 200, headers: { "cache-control": "no-store" } }
+    );
   }
 }
