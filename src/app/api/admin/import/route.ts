@@ -1,12 +1,6 @@
 import { getRequestContext } from "@cloudflare/next-on-pages";
 
-// If you previously set runtime, keep it. This is safe for Pages.
 export const runtime = "edge";
-
-type Env = {
-  DB: D1Database;
-  ADMIN_TOKEN?: string;
-};
 
 type ImportType = "cards" | "sets" | "printings";
 
@@ -27,7 +21,6 @@ function parseCsv(text: string): { headers: string[]; rows: Record<string, strin
   let field = "";
   let inQuotes = false;
 
-  // Normalize newlines, keep parsing char-by-char
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
 
@@ -60,23 +53,17 @@ function parseCsv(text: string): { headers: string[]; rows: Record<string, strin
     if (c === "\n") {
       row.push(field);
       field = "";
-      // trim possible \r on last field already handled by reading
       rows.push(row);
       row = [];
       continue;
     }
 
-    if (c === "\r") {
-      // ignore, \n will end the row
-      continue;
-    }
+    if (c === "\r") continue;
 
     field += c;
   }
 
-  // Last field
   row.push(field);
-  // If file doesn't end with newline, push last row if meaningful
   if (row.some((x) => x.trim().length > 0)) rows.push(row);
 
   if (!rows.length) return { headers: [], rows: [] };
@@ -86,7 +73,6 @@ function parseCsv(text: string): { headers: string[]; rows: Record<string, strin
 
   for (let r = 1; r < rows.length; r++) {
     const vals = rows[r];
-    // skip empty line
     if (!vals || vals.every((v) => String(v ?? "").trim() === "")) continue;
 
     const obj: Record<string, string> = {};
@@ -106,8 +92,12 @@ function requireString(v: any, name: string): string {
 }
 
 export async function POST(req: Request) {
-  const { env } = getRequestContext<Env>();
-  const adminTokenConfigured = env.ADMIN_TOKEN ?? (process.env as any).ADMIN_TOKEN;
+  // IMPORTANT: cast context/env to any so custom secrets like ADMIN_TOKEN don't fail TS builds
+  const ctx: any = getRequestContext();
+  const env: any = ctx?.env;
+
+  const adminTokenConfigured =
+    env?.ADMIN_TOKEN ?? (process.env as any)?.ADMIN_TOKEN;
 
   if (!adminTokenConfigured) {
     return json({ error: "Import failed: ADMIN_TOKEN not configured" }, { status: 500 });
@@ -160,19 +150,20 @@ export async function POST(req: Request) {
     }
   }
 
-  // Insert into D1
-  // Strategy:
-  // - Use id = canonical_name (deterministic) so repeated imports don't create duplicates.
-  // - created_at = now
-  // - Insert OR IGNORE to avoid error if same id already exists.
+  // D1 binding is DB in your wrangler.toml
+  const DB: D1Database | undefined = env?.DB;
+  if (!DB) {
+    return json({ error: "D1 binding DB not available in runtime env." }, { status: 500 });
+  }
+
+  // Deterministic id prevents duplicates
   const nowIso = new Date().toISOString();
 
   let inserted = 0;
   let skipped = 0;
   const errors: Array<{ row: number; message: string; canonical_name?: string }> = [];
 
-  // Prepare statement once
-  const stmt = env.DB.prepare(
+  const stmt = DB.prepare(
     `INSERT OR IGNORE INTO cards (
       id, game_id, canonical_name, name_sort,
       set_name, card_id, card_name, rarity,
@@ -188,14 +179,15 @@ export async function POST(req: Request) {
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
-    const rowNumber = i + 2; // +2 because CSV header is line 1
+    const rowNumber = i + 2; // CSV header is line 1
 
     try {
       const game_id = requireString(r.game_id, "game_id");
       const canonical_name = requireString(r.canonical_name, "canonical_name");
       const name_sort = requireString(r.name_sort, "name_sort");
 
-      const id = canonical_name; // deterministic PK
+      const id = canonical_name;
+
       const set_name = (r.set_name ?? "").toString().trim() || null;
       const card_id = (r.card_id ?? "").toString().trim() || null;
       const card_name = (r.card_name ?? "").toString().trim() || null;
@@ -203,9 +195,7 @@ export async function POST(req: Request) {
 
       const yearRaw = (r.year ?? "").toString().trim();
       const year = yearRaw ? Number(yearRaw) : null;
-      if (yearRaw && Number.isNaN(year)) {
-        throw new Error(`Invalid year value: "${yearRaw}"`);
-      }
+      if (yearRaw && Number.isNaN(year)) throw new Error(`Invalid year value: "${yearRaw}"`);
 
       const image_source = (r.image_source ?? "").toString().trim() || null;
       const image_filename = (r.image_filename ?? "").toString().trim() || null;
@@ -229,18 +219,19 @@ export async function POST(req: Request) {
         )
         .run();
 
-      // D1 returns success even if ignored; we can infer by changes (when available)
-      // Some environments may not provide changes reliably; handle gracefully.
       const changes = (res as any)?.meta?.changes;
       if (typeof changes === "number") {
         if (changes > 0) inserted += changes;
         else skipped += 1;
       } else {
-        // fallback: count as inserted optimistically
         inserted += 1;
       }
     } catch (e: any) {
-      errors.push({ row: rowNumber, message: e?.message || "Row failed", canonical_name: r.canonical_name });
+      errors.push({
+        row: rowNumber,
+        message: e?.message || "Row failed",
+        canonical_name: r.canonical_name,
+      });
     }
   }
 
