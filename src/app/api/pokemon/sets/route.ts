@@ -1,107 +1,100 @@
-import { NextResponse } from "next/server";
-import { getRequestContext } from "@cloudflare/next-on-pages";
-
+// src/app/api/pokemon/sets/route.ts
 export const runtime = "edge";
 
-type UpstreamSetsResponse = {
-  data?: any[];
-  page?: number;
-  pageSize?: number;
-  count?: number;
-  totalCount?: number;
+type PtcgSet = {
+  id: string;
+  name: string;
+  series?: string;
+  releaseDate?: string;
+  printedTotal?: number;
+  total?: number;
+  images?: {
+    symbol?: string;
+    logo?: string;
+  };
+  updatedAt?: string;
 };
 
-async function fetchWithTimeout(url: string, apiKey: string, timeoutMs: number) {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, {
-      headers: { "X-Api-Key": apiKey, Accept: "application/json" },
-      signal: controller.signal,
-      cache: "no-store",
-    });
-  } finally {
-    clearTimeout(t);
-  }
+type UpstreamResponse = {
+  data: PtcgSet[];
+};
+
+function json(data: unknown, status = 200, headers?: Record<string, string>) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      // default: don’t let CF cache error responses
+      ...headers,
+    },
+  });
 }
 
-export async function GET(_req: Request) {
-  const { env } = getRequestContext();
-  const cfEnv = env as any; // keep it simple for Pages typing
+function getApiKey() {
+  // Prefer server-side secret, fall back to public if that's what you used earlier
+  return (
+    (process.env.POKEMONTCG_API_KEY || "").trim() ||
+    (process.env.NEXT_PUBLIC_POKEMONTCG_API_KEY || "").trim()
+  );
+}
 
-  const db = cfEnv.DB as D1Database | undefined;
-  const apiKey = cfEnv.POKEMONTCG_API_KEY as string | undefined;
-
-  // 1) Try D1 first (fast)
-  if (db) {
-    try {
-      const rows = await db
-        .prepare(
-          `SELECT id, name, series, releaseDate, printedTotal, total,
-                  images_symbol as symbol, images_logo as logo
-           FROM pokemon_sets
-           ORDER BY releaseDate ASC`
-        )
-        .all();
-
-      if (rows?.results?.length) {
-        const data = rows.results.map((r: any) => ({
-          id: r.id,
-          name: r.name,
-          series: r.series,
-          releaseDate: r.releaseDate,
-          printedTotal: r.printedTotal,
-          total: r.total,
-          images: { symbol: r.symbol, logo: r.logo },
-        }));
-
-        return NextResponse.json({ data, source: "d1" }, { status: 200 });
-      }
-    } catch {
-      // table missing or query failed -> fall through to upstream
-    }
-  }
-
-  // 2) Fallback to upstream if D1 missing/empty
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: "POKEMONTCG_API_KEY missing and no cached sets in D1." },
-      { status: 500 }
-    );
-  }
+export async function GET() {
+  const apiKey = getApiKey();
 
   const upstream = "https://api.pokemontcg.io/v2/sets?page=1&pageSize=250";
 
   try {
-    const res = await fetchWithTimeout(upstream, apiKey, 12000);
+    // IMPORTANT: Cloudflare Workers fetch does NOT support RequestInit.cache
+    const res = await fetch(upstream, {
+      headers: {
+        Accept: "application/json",
+        ...(apiKey ? { "X-Api-Key": apiKey } : {}),
+      },
+    });
 
+    // If upstream is unhappy, return a useful error payload
     if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      return NextResponse.json(
-        { error: "Upstream failed", status: res.status, bodyPreview: txt.slice(0, 200) },
-        { status: 502 }
+      const text = await res.text().catch(() => "");
+      return json(
+        {
+          error: `Upstream error ${res.status}`,
+          upstream,
+          hint:
+            "If this is 504/520 from Cloudflare, the upstream API may be rate-limiting or having regional issues.",
+          body: text ? text.slice(0, 1000) : "",
+        },
+        res.status,
+        { "cache-control": "no-store" }
       );
     }
 
-    const json = (await res.json()) as UpstreamSetsResponse;
+    const payload = (await res.json()) as UpstreamResponse;
 
-    return NextResponse.json(
+    // Normalize what the UI expects, if needed
+    const data = (payload?.data ?? []).map((s) => ({
+      id: s.id,
+      name: s.name,
+      series: s.series ?? null,
+      releaseDate: s.releaseDate ?? null,
+      printedTotal: s.printedTotal ?? null,
+      total: s.total ?? null,
+      images_symbol: s.images?.symbol ?? null,
+      images_logo: s.images?.logo ?? null,
+      updatedAt: s.updatedAt ?? null,
+    }));
+
+    // We can allow short edge caching if you want. For now: no-store to keep it simple.
+    return json({ data }, 200, { "cache-control": "no-store" });
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error ? err.message : "Unknown fetch error";
+    return json(
       {
-        data: json?.data ?? [],
-        page: json?.page,
-        pageSize: json?.pageSize,
-        count: json?.count,
-        totalCount: json?.totalCount,
-        source: "upstream",
+        error: message,
+        upstream,
       },
-      { status: 200 }
-    );
-  } catch (err: any) {
-    const msg =
-      err?.name === "AbortError" ? "Upstream timed out" : err?.message ?? "Upstream error";
-    return NextResponse.json(
-      { error: msg, upstream, hint: "Upstream is returning 504s from LAX right now." },
-      { status: 504 }
+      500,
+      { "cache-control": "no-store" }
     );
   }
 }
