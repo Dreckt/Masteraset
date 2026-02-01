@@ -15,6 +15,40 @@ function getAdminImportToken(env: any) {
   return env?.ADMIN_IMPORT_TOKEN ?? (process.env as any)?.ADMIN_IMPORT_TOKEN ?? null;
 }
 
+function titleCase(input: string) {
+  const s = (input ?? "").toString().trim();
+  if (!s) return s;
+  return s
+    .split(/[-_\s]+/g)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+type TableColumn = {
+  cid: number;
+  name: string;
+  type: string;
+  notnull: number;
+  dflt_value: any;
+  pk: number;
+};
+
+function isTimestampCol(colName: string) {
+  const n = colName.toLowerCase();
+  return n === "created_at" || n === "updated_at" || n === "createdat" || n === "updatedat";
+}
+
+function isNameLikeCol(colName: string) {
+  const n = colName.toLowerCase();
+  return n === "name" || n === "title" || n === "display_name" || n === "displayname";
+}
+
+function isSlugLikeCol(colName: string) {
+  const n = colName.toLowerCase();
+  return n === "slug" || n === "key" || n === "code";
+}
+
 /**
  * Minimal CSV parser (supports quoted fields, commas, CRLF/LF).
  */
@@ -94,19 +128,9 @@ function requireString(v: any, name: string): string {
   return s;
 }
 
-function titleCase(input: string) {
-  const s = (input ?? "").toString().trim();
-  if (!s) return s;
-  return s
-    .split(/[-_\s]+/g)
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
 /**
- * Ensures every game_id present in the CSV exists in `games` (id, name, slug)
- * so card inserts won't fail foreign key checks.
+ * Seed any missing games required by cards.game_id FK.
+ * This reads PRAGMA table_info(games) at runtime and fills NOT NULL columns safely.
  */
 async function seedGames(DB: D1Database, cardRows: Record<string, string>[]) {
   const gameIds = new Set<string>();
@@ -114,23 +138,69 @@ async function seedGames(DB: D1Database, cardRows: Record<string, string>[]) {
     const gid = (r.game_id ?? "").toString().trim();
     if (gid) gameIds.add(gid);
   }
+  const gameIdsArr = Array.from(gameIds);
+  if (gameIdsArr.length === 0) return { seeded: 0, attempted: [] as string[], gameExists: {} as Record<string, number>, schemaCols: [] as string[] };
 
-  if (gameIds.size === 0) return { seeded: 0, gameIds: [] as string[] };
+  // Inspect games schema (prod-safe)
+  const tiRes = await DB.prepare(`PRAGMA table_info(games);`).all();
+  const cols: TableColumn[] = (tiRes as any)?.results ?? [];
+  const colNames = Array.isArray(cols) ? cols.map((c) => c.name) : [];
 
-  const stmt = DB.prepare(
-    `INSERT OR IGNORE INTO games (id, name, slug) VALUES (?, ?, ?)`
-  );
+  if (!Array.isArray(cols) || cols.length === 0) {
+    throw new Error("games table not found or has no columns");
+  }
 
+  // Include PK + NOT NULL columns (even if prod has extra required columns)
+  const insertCols: string[] = [];
+  for (const c of cols) {
+    if (c.pk === 1 || c.notnull === 1) insertCols.push(c.name);
+  }
+
+  // Ensure id/name/slug are included if they exist
+  if (colNames.includes("id") && !insertCols.includes("id")) insertCols.push("id");
+  if (colNames.includes("name") && !insertCols.includes("name")) insertCols.push("name");
+  if (colNames.includes("slug") && !insertCols.includes("slug")) insertCols.push("slug");
+
+  // Deduplicate while keeping order
+  const seen = new Set<string>();
+  const finalCols = insertCols.filter((x) => (seen.has(x) ? false : (seen.add(x), true)));
+
+  const placeholders = finalCols.map(() => "?").join(", ");
+  const sql = `INSERT OR IGNORE INTO games (${finalCols.join(", ")}) VALUES (${placeholders})`;
+  const stmt = DB.prepare(sql);
+
+  const nowIso = new Date().toISOString();
   let seeded = 0;
-  for (const gid of gameIds) {
-    const name = titleCase(gid); // "pokemon" -> "Pokemon"
-    const slug = gid;            // keep slug as the id (pokemon, mtg, etc.)
-    const res = await stmt.bind(gid, name, slug).run();
+
+  for (const gid of gameIdsArr) {
+    const name = titleCase(gid);
+    const binds = finalCols.map((col) => {
+      if (col === "id") return gid;
+      if (isNameLikeCol(col)) return name;
+      if (isSlugLikeCol(col)) return gid;
+      if (isTimestampCol(col)) return nowIso;
+
+      // Safe defaults for unknown required columns:
+      const colType = (cols.find((c) => c.name === col)?.type ?? "").toUpperCase();
+      if (colType.includes("INT")) return 0;
+      if (colType.includes("REAL") || colType.includes("FLOA") || colType.includes("DOUB")) return 0;
+
+      return ""; // default for TEXT-like required columns
+    });
+
+    const res = await stmt.bind(...binds).run();
     const changes = (res as any)?.meta?.changes;
     if (typeof changes === "number" && changes > 0) seeded += changes;
   }
 
-  return { seeded, gameIds: Array.from(gameIds) };
+  // Verify existence (helps debug without exposing secrets)
+  const gameExists: Record<string, number> = {};
+  for (const gid of gameIdsArr) {
+    const r = await DB.prepare(`SELECT COUNT(1) as c FROM games WHERE id = ?`).bind(gid).first();
+    gameExists[gid] = Number((r as any)?.c ?? 0);
+  }
+
+  return { seeded, attempted: gameIdsArr, gameExists, schemaCols: colNames };
 }
 
 export async function POST(req: Request) {
@@ -179,7 +249,6 @@ export async function POST(req: Request) {
   if (!headers.length) return json({ error: "CSV appears to have no header row." }, { status: 400 });
   if (!rows.length) return json({ error: "CSV has a header but no data rows." }, { status: 400 });
 
-  // Required by your cards schema (NOT NULL)
   const requiredCols = ["game_id", "canonical_name", "name_sort"];
   for (const col of requiredCols) {
     if (!headers.includes(col)) {
@@ -190,7 +259,7 @@ export async function POST(req: Request) {
     }
   }
 
-  // ✅ Seed missing games first to satisfy FK(cards.game_id -> games.id)
+  // ✅ Seed games based on whatever schema prod currently has
   const seed = await seedGames(DB, rows);
 
   const nowIso = new Date().toISOString();
@@ -215,7 +284,7 @@ export async function POST(req: Request) {
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
-    const rowNumber = i + 2; // CSV header is line 1
+    const rowNumber = i + 2;
 
     try {
       const game_id = requireString(r.game_id, "game_id");
@@ -263,7 +332,11 @@ export async function POST(req: Request) {
         inserted += 1;
       }
     } catch (e: any) {
-      errors.push({ row: rowNumber, message: e?.message || "Row failed", canonical_name: r.canonical_name });
+      errors.push({
+        row: rowNumber,
+        message: e?.message || "Row failed",
+        canonical_name: r.canonical_name,
+      });
     }
   }
 
@@ -276,7 +349,9 @@ export async function POST(req: Request) {
     errors,
     seeded: {
       gamesInserted: seed.seeded,
-      gameIdsSeen: seed.gameIds,
+      gameIdsSeen: seed.attempted,
+      gameExists: seed.gameExists,
+      gamesSchemaCols: seed.schemaCols,
     },
   });
 }
