@@ -14,15 +14,26 @@ interface PokemonSet {
   updatedAt: string;
 }
 
+function getBaseUrl(): string {
+  // Prefer explicit env var if set, otherwise hard-fallback to prod domain
+  const envUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (envUrl && envUrl.startsWith("http")) return envUrl;
+
+  const pagesUrl = process.env.CF_PAGES_URL; // sometimes exists without scheme
+  if (pagesUrl) return pagesUrl.startsWith("http") ? pagesUrl : `https://${pagesUrl}`;
+
+  return "https://masteraset.com";
+}
+
 async function getSet(id: string): Promise<PokemonSet | null> {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_SITE_URL}/api/pokemon/sets/${id}`,
-    { cache: "no-store" }
-  );
+  const baseUrl = getBaseUrl();
+
+  const res = await fetch(`${baseUrl}/api/pokemon/sets/${id}`, {
+    cache: "no-store",
+  });
 
   if (!res.ok) return null;
 
-  // FIX: ensure payload isn't inferred as {}
   const payload: any = await res.json();
 
   // payload may be { data: ... } or direct object
@@ -64,3 +75,4 @@ export default async function SetPage({
     </main>
   );
 }
+

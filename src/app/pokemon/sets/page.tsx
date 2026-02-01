@@ -11,16 +11,27 @@ interface PokemonSetRow {
   images_logo: string | null;
 }
 
+function getBaseUrl(): string {
+  // Prefer explicit env var if set, otherwise hard-fallback to prod domain
+  const envUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (envUrl && envUrl.startsWith("http")) return envUrl;
+
+  const pagesUrl = process.env.CF_PAGES_URL; // sometimes exists without scheme
+  if (pagesUrl) return pagesUrl.startsWith("http") ? pagesUrl : `https://${pagesUrl}`;
+
+  return "https://masteraset.com";
+}
+
 async function getSets(): Promise<PokemonSetRow[]> {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/pokemon/sets`, {
+  const baseUrl = getBaseUrl();
+
+  const res = await fetch(`${baseUrl}/api/pokemon/sets`, {
     cache: "no-store",
   });
 
   if (!res.ok) return [];
 
-  // FIX: ensure payload isn't inferred as {}
   const payload: any = await res.json();
-
   const data = (payload?.data ?? []) as PokemonSetRow[];
 
   return Array.isArray(data) ? data : [];
@@ -69,4 +80,3 @@ export default async function PokemonSetsPage() {
     </main>
   );
 }
-
