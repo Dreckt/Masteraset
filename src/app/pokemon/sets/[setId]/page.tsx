@@ -14,6 +14,14 @@ type PokemonSet = {
   updatedAt: string | null;
 };
 
+type SetApiResponse = {
+  data?: PokemonSet;
+  source?: string;
+  count?: number;
+  error?: string;
+  message?: string;
+};
+
 function getOriginFromHeaders() {
   const h = headers();
   const host = h.get("x-forwarded-host") || h.get("host") || "masteraset.com";
@@ -21,7 +29,11 @@ function getOriginFromHeaders() {
   return `${proto}://${host}`;
 }
 
-export default async function PokemonSetPage({ params }: { params: { setId: string } }) {
+export default async function PokemonSetPage({
+  params,
+}: {
+  params: { setId: string };
+}) {
   const origin = getOriginFromHeaders();
   const setId = params.setId;
 
@@ -29,7 +41,7 @@ export default async function PokemonSetPage({ params }: { params: { setId: stri
     headers: { accept: "application/json" },
   });
 
-  const payload = await res.json().catch(() => null);
+  const payload = (await res.json().catch(() => null)) as SetApiResponse | PokemonSet | null;
 
   if (!res.ok) {
     return (
@@ -57,13 +69,16 @@ export default async function PokemonSetPage({ params }: { params: { setId: stri
     );
   }
 
-  const set = (payload?.data ?? payload) as PokemonSet;
+  // API returns { data: {...} } but we also accept a direct object (defensive)
+  const set = (payload && "data" in payload ? (payload as SetApiResponse).data : payload) as PokemonSet | null;
 
   return (
     <main className="ms-container" style={{ paddingTop: 24, paddingBottom: 40 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <div>
-          <div style={{ color: "var(--ms-muted)", fontSize: 13, marginBottom: 6 }}>Pokémon • Sets</div>
+          <div style={{ color: "var(--ms-muted)", fontSize: 13, marginBottom: 6 }}>
+            Pokémon • Sets
+          </div>
           <h1 style={{ fontSize: 26, fontWeight: 900, margin: 0 }}>{set?.name ?? setId}</h1>
           <div style={{ color: "var(--ms-muted)", marginTop: 6, fontSize: 13, lineHeight: 1.4 }}>
             {set?.series ? <span style={{ marginRight: 10 }}>{set.series}</span> : null}
@@ -72,7 +87,11 @@ export default async function PokemonSetPage({ params }: { params: { setId: stri
           </div>
         </div>
 
-        <a className="ms-chip" href="/pokemon/sets" style={{ textDecoration: "none", color: "inherit", whiteSpace: "nowrap" }}>
+        <a
+          className="ms-chip"
+          href="/pokemon/sets"
+          style={{ textDecoration: "none", color: "inherit", whiteSpace: "nowrap" }}
+        >
           ← Back to sets
         </a>
       </div>
