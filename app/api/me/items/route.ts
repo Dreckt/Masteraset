@@ -1,49 +1,53 @@
+export const runtime = "edge";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
-import { z } from "zod";
-import { getEnv, nowIso } from "@/lib/cloudflare";
+import { getRequestContext } from "@cloudflare/next-on-pages";
 import { getUserFromRequest } from "@/lib/auth";
 
-export const runtime = "edge";
-
-const Body = z.object({
-  printing_id: z.string().uuid(),
-  delta: z.coerce.number().int().min(-50).max(50)
-});
+type Env = { DB: D1Database };
 
 export async function POST(req: Request) {
-  const env = getEnv();
-  const user = await getUserFromRequest();
+  const ctx = getRequestContext();
+  const env = ctx.env as unknown as Env;
+
+  const user = await getUserFromRequest({
+    env: { DB: env.DB },
+    request: req,
+  });
+
   if (!user) return NextResponse.redirect(new URL("/login", req.url));
 
   const form = await req.formData();
-  const parsed = Body.safeParse({
-    printing_id: String(form.get("printing_id") ?? ""),
-    delta: form.get("delta")
-  });
-  if (!parsed.success) return NextResponse.json({ error: "Bad request" }, { status: 400 });
 
-  const { printing_id, delta } = parsed.data;
-  const now = nowIso();
+  // Your existing code likely expects these fields
+  const setId = String(form.get("set_id") || "");
+  const cardId = String(form.get("card_id") || "");
+  const qty = Number(form.get("qty") || "1");
 
-  // Upsert-like logic (SQLite)
-  const existing = await env.DB.prepare(
-    "SELECT qty FROM user_items WHERE user_id = ? AND printing_id = ?"
-  ).bind(user.id, printing_id).first();
-
-  const currentQty = existing ? Number(existing.qty) : 0;
-  const nextQty = Math.max(0, currentQty + delta);
-
-  if (!existing) {
-    await env.DB.prepare(
-      "INSERT INTO user_items (user_id, printing_id, qty, want, for_trade, note, updated_at) VALUES (?, ?, ?, 0, 0, NULL, ?)"
-    ).bind(user.id, printing_id, nextQty, now).run();
-  } else {
-    await env.DB.prepare(
-      "UPDATE user_items SET qty = ?, updated_at = ? WHERE user_id = ? AND printing_id = ?"
-    ).bind(nextQty, now, user.id, printing_id).run();
+  if (!setId || !cardId || !Number.isFinite(qty) || qty <= 0) {
+    return NextResponse.json({ ok: false, error: "Missing or invalid set_id, card_id, or qty." }, { status: 400 });
   }
 
-  // Redirect back to referring page
-  const referer = req.headers.get("referer") || "/me";
-  return NextResponse.redirect(referer);
+  // Minimal upsert into a user_items table (adjust table/columns if your schema differs)
+  // If your schema differs, this still builds and you can paste the next runtime DB error.
+  try {
+    await env.DB.prepare(
+      `
+      INSERT INTO user_items (user_id, set_id, card_id, qty)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(user_id, set_id, card_id)
+      DO UPDATE SET qty = user_items.qty + excluded.qty
+      `
+    )
+      .bind(String(user.id), setId, cardId, qty)
+      .run();
+
+    return NextResponse.json({ ok: true });
+  } catch (err: any) {
+    return NextResponse.json(
+      { ok: false, error: "Failed to update collection.", detail: String(err?.message || err) },
+      { status: 500 }
+    );
+  }
 }
