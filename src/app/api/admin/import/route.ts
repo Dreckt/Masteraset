@@ -6,7 +6,7 @@ export const runtime = "edge";
  * Change this string anytime you deploy a new version.
  * We'll use it to confirm prod is running the latest code.
  */
-const BUILD_ID = "admin-import-2026-02-01-seedgames-diagnostics-v1";
+const BUILD_ID = "admin-import-2026-02-01-seedgames-diagnostics-v2";
 
 type ImportType = "cards" | "sets" | "printings";
 
@@ -150,7 +150,7 @@ async function getDiagnostics(DB: D1Database) {
 }
 
 /**
- * Seed missing games required by cards.game_id FK.
+ * Seed any missing games required by cards.game_id FK.
  * Builds INSERT columns dynamically based on games schema.
  */
 async function seedGames(DB: D1Database, cardRows: Record<string, string>[]) {
@@ -161,7 +161,7 @@ async function seedGames(DB: D1Database, cardRows: Record<string, string>[]) {
   }
   const gameIdsArr = Array.from(gameIds);
   if (gameIdsArr.length === 0) {
-    return { seeded: 0, attempted: [] as string[], gameExists: {} as Record<string, number>, insertSql: null as string | null };
+    return { seeded: 0, attempted: [] as string[], gameExists: {} as Record<string, number>, insertSql: null as string | null, seedErrors: [] as any[] };
   }
 
   const tiRes = await DB.prepare(`PRAGMA table_info(games);`).all();
@@ -229,9 +229,10 @@ async function seedGames(DB: D1Database, cardRows: Record<string, string>[]) {
 
 /**
  * GET /api/admin/import
- * Returns non-sensitive diagnostics so we can confirm prod schema + deployed version.
+ * - default: returns diagnostics
+ * - ?games=1 : also returns the games rows (id/name/slug) so we can debug FK mismatches
  */
-export async function GET() {
+export async function GET(req: Request) {
   const ctx: any = getRequestContext();
   const env: any = ctx?.env;
   const DB: D1Database | undefined = env?.DB;
@@ -239,7 +240,19 @@ export async function GET() {
   if (!DB) return json({ build: BUILD_ID, error: "D1 binding DB not available in runtime env." }, { status: 500 });
 
   try {
+    const url = new URL(req.url);
+    const includeGames = url.searchParams.get("games") === "1";
+
     const diag = await getDiagnostics(DB);
+
+    if (includeGames) {
+      const games = await DB.prepare(`SELECT id, name, slug FROM games ORDER BY id LIMIT 200;`).all();
+      return json({
+        ...diag,
+        games: (games as any)?.results ?? games,
+      });
+    }
+
     return json(diag);
   } catch (e: any) {
     return json({ build: BUILD_ID, error: String(e?.message || e) }, { status: 500 });
