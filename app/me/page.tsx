@@ -1,18 +1,19 @@
 import { headers } from "next/headers";
 import Link from "next/link";
 
-// IMPORTANT: Cloudflare Pages build is not resolving the "@/..." alias here,
-// so we use relative imports from the repo root.
-import { getEnv } from "../../src/lib/env";
-import { getUserFromRequest } from "../../src/lib/auth";
+// Cloudflare build can't resolve the "@/..." alias reliably here,
+// and your helpers are not under /src in this build context.
+// Use root-level relative imports instead.
+import { getEnv } from "../../lib/env";
+import { getUserFromRequest } from "../../lib/auth";
 
 export const runtime = "edge";
 
 export default async function MePage() {
   const env = getEnv();
 
-  // Server Components don't get a Pages "ctx" object.
-  // Build a Request using the incoming Cookie header so auth can read the session.
+  // Server Components don't receive a Pages "ctx" object.
+  // Build a Request that includes cookies so auth can read the session.
   const h = headers();
   const reqForAuth = new Request("https://internal/me", {
     headers: {
