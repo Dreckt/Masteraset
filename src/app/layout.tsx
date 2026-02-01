@@ -1,6 +1,7 @@
 import "./globals.css";
+import type { Metadata } from "next";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "MasteraSet",
   description: "Track. Value. Grow.",
 };
@@ -34,13 +35,19 @@ export default function RootLayout({
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ fontWeight: 800, letterSpacing: 0.5 }}>
-                Mastera<span className="ms-accent-cyan">Set</span>
+              <div style={{ fontWeight: 800, letterSpacing: "0.5px" }}>
+                Mastera
+                <span className="ms-accent-cyan">Set</span>
               </div>
-              <span className="ms-chip">Local Dev</span>
             </div>
 
-            <nav style={{ display: "flex", gap: 16, color: "var(--ms-muted)" }}>
+            <nav
+              style={{
+                display: "flex",
+                gap: 16,
+                color: "var(--ms-muted)",
+              }}
+            >
               <a href="/">Home</a>
               <a href="/dashboard">Dashboard</a>
               <a href="/games">Sets</a>
@@ -54,4 +61,3 @@ export default function RootLayout({
     </html>
   );
 }
-
