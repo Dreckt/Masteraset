@@ -3,10 +3,9 @@ import { getRequestContext } from "@cloudflare/next-on-pages";
 export const runtime = "edge";
 
 /**
- * Change this string anytime you deploy a new version.
- * We'll use it to confirm prod is running the latest code.
+ * Bump this string to confirm prod is running latest code.
  */
-const BUILD_ID = "admin-import-2026-02-01-seedgames-diagnostics-v2";
+const BUILD_ID = "admin-import-2026-02-01-gameid-slug-to-uuid-v1";
 
 type ImportType = "cards" | "sets" | "printings";
 
@@ -31,28 +30,10 @@ function titleCase(input: string) {
     .join(" ");
 }
 
-type TableColumn = {
-  cid: number;
-  name: string;
-  type: string;
-  notnull: number;
-  dflt_value: any;
-  pk: number;
-};
-
-function isTimestampCol(colName: string) {
-  const n = colName.toLowerCase();
-  return n === "created_at" || n === "updated_at" || n === "createdat" || n === "updatedat";
-}
-
-function isNameLikeCol(colName: string) {
-  const n = colName.toLowerCase();
-  return n === "name" || n === "title" || n === "display_name" || n === "displayname";
-}
-
-function isSlugLikeCol(colName: string) {
-  const n = colName.toLowerCase();
-  return n === "slug" || n === "key" || n === "code";
+function isUuidLike(v: string) {
+  const s = (v ?? "").toString().trim();
+  // basic UUID v4-ish pattern (good enough for routing)
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 }
 
 /**
@@ -136,9 +117,9 @@ function requireString(v: any, name: string): string {
 
 async function getDiagnostics(DB: D1Database) {
   const fkCards = await DB.prepare(`PRAGMA foreign_key_list(cards);`).all();
-  const tiGames = await DB.prepare(`PRAGMA table_info(games);`).all().catch((e: any) => ({ error: String(e?.message || e) }));
+  const tiGames = await DB.prepare(`PRAGMA table_info(games);`).all();
   const tiCards = await DB.prepare(`PRAGMA table_info(cards);`).all();
-  const gamesCount = await DB.prepare(`SELECT COUNT(1) as c FROM games;`).first().catch((e: any) => ({ error: String(e?.message || e) }));
+  const gamesCount = await DB.prepare(`SELECT COUNT(1) as c FROM games;`).first();
 
   return {
     build: BUILD_ID,
@@ -150,87 +131,78 @@ async function getDiagnostics(DB: D1Database) {
 }
 
 /**
- * Seed any missing games required by cards.game_id FK.
- * Builds INSERT columns dynamically based on games schema.
+ * Load games and build maps:
+ * - idSet: existing ids
+ * - slugToId: slug -> id
  */
-async function seedGames(DB: D1Database, cardRows: Record<string, string>[]) {
-  const gameIds = new Set<string>();
-  for (const r of cardRows) {
-    const gid = (r.game_id ?? "").toString().trim();
-    if (gid) gameIds.add(gid);
+async function loadGameMaps(DB: D1Database) {
+  const res = await DB.prepare(`SELECT id, name, slug FROM games;`).all();
+  const games: Array<{ id: string; name: string; slug: string }> = (res as any)?.results ?? [];
+  const idSet = new Set<string>();
+  const slugToId = new Map<string, string>();
+  for (const g of games) {
+    if (g?.id) idSet.add(g.id);
+    if (g?.slug && g?.id) slugToId.set(g.slug, g.id);
   }
-  const gameIdsArr = Array.from(gameIds);
-  if (gameIdsArr.length === 0) {
-    return { seeded: 0, attempted: [] as string[], gameExists: {} as Record<string, number>, insertSql: null as string | null, seedErrors: [] as any[] };
+  return { games, idSet, slugToId };
+}
+
+/**
+ * Ensure slugs referenced by CSV exist in games table.
+ * If missing, inserts a new game row with a generated UUID id.
+ *
+ * NOTE: Your prod already has slug 'pokemon' etc, so this should usually do nothing.
+ */
+async function ensureGameSlugsExist(DB: D1Database, slugs: Set<string>) {
+  const { slugToId } = await loadGameMaps(DB);
+
+  const missing: string[] = [];
+  for (const s of slugs) {
+    if (!slugToId.has(s)) missing.push(s);
   }
+  if (!missing.length) return { created: 0, missing: [] as string[] };
 
-  const tiRes = await DB.prepare(`PRAGMA table_info(games);`).all();
-  const cols: TableColumn[] = (tiRes as any)?.results ?? [];
-  if (!Array.isArray(cols) || cols.length === 0) throw new Error("games table not found or has no columns");
+  const stmt = DB.prepare(`INSERT INTO games (id, name, slug) VALUES (?, ?, ?)`);
 
-  const colNames = cols.map((c) => c.name);
-
-  // include PK + NOT NULL columns
-  const insertCols: string[] = [];
-  for (const c of cols) {
-    if (c.pk === 1 || c.notnull === 1) insertCols.push(c.name);
-  }
-
-  // ensure id/name/slug are included if present
-  if (colNames.includes("id") && !insertCols.includes("id")) insertCols.push("id");
-  if (colNames.includes("name") && !insertCols.includes("name")) insertCols.push("name");
-  if (colNames.includes("slug") && !insertCols.includes("slug")) insertCols.push("slug");
-
-  // dedupe
-  const seen = new Set<string>();
-  const finalCols = insertCols.filter((x) => (seen.has(x) ? false : (seen.add(x), true)));
-
-  const placeholders = finalCols.map(() => "?").join(", ");
-  const insertSql = `INSERT OR IGNORE INTO games (${finalCols.join(", ")}) VALUES (${placeholders})`;
-  const stmt = DB.prepare(insertSql);
-
-  const nowIso = new Date().toISOString();
-  let seeded = 0;
-  const seedErrors: Array<{ game_id: string; message: string }> = [];
-
-  for (const gid of gameIdsArr) {
-    const name = titleCase(gid);
-
-    const binds = finalCols.map((col) => {
-      if (col === "id") return gid;
-      if (isNameLikeCol(col)) return name;
-      if (isSlugLikeCol(col)) return gid;
-      if (isTimestampCol(col)) return nowIso;
-
-      const colType = (cols.find((c) => c.name === col)?.type ?? "").toUpperCase();
-      if (colType.includes("INT")) return 0;
-      if (colType.includes("REAL") || colType.includes("FLOA") || colType.includes("DOUB")) return 0;
-      return "";
-    });
-
-    try {
-      const res = await stmt.bind(...binds).run();
-      const changes = (res as any)?.meta?.changes;
-      if (typeof changes === "number" && changes > 0) seeded += changes;
-    } catch (e: any) {
-      seedErrors.push({ game_id: gid, message: String(e?.message || e) });
-    }
+  let created = 0;
+  for (const slug of missing) {
+    const id = crypto.randomUUID();
+    const name = titleCase(slug);
+    await stmt.bind(id, name, slug).run();
+    created += 1;
   }
 
-  // verify existence
-  const gameExists: Record<string, number> = {};
-  for (const gid of gameIdsArr) {
-    const r = await DB.prepare(`SELECT COUNT(1) as c FROM games WHERE id = ?`).bind(gid).first();
-    gameExists[gid] = Number((r as any)?.c ?? 0);
+  return { created, missing };
+}
+
+/**
+ * Resolve CSV "game_id" into a valid games.id UUID.
+ * - If already a UUID that exists in games.id -> return it.
+ * - Otherwise treat it as slug and map slug -> id.
+ */
+async function resolveGameIdOrThrow(DB: D1Database, raw: string, maps?: Awaited<ReturnType<typeof loadGameMaps>>) {
+  const input = (raw ?? "").toString().trim();
+  if (!input) throw new Error("Missing required field: game_id");
+
+  const m = maps ?? (await loadGameMaps(DB));
+
+  // If they provided a UUID, accept it if it exists
+  if (isUuidLike(input)) {
+    if (m.idSet.has(input)) return input;
+    throw new Error(`game_id looks like UUID but does not exist in games.id: ${input}`);
   }
 
-  return { seeded, attempted: gameIdsArr, gameExists, insertSql, seedErrors };
+  // Otherwise treat as slug
+  const mapped = m.slugToId.get(input);
+  if (mapped) return mapped;
+
+  throw new Error(`game_id "${input}" did not match any games.slug in DB`);
 }
 
 /**
  * GET /api/admin/import
- * - default: returns diagnostics
- * - ?games=1 : also returns the games rows (id/name/slug) so we can debug FK mismatches
+ * - default: diagnostics
+ * - ?games=1 : include games rows
  */
 export async function GET(req: Request) {
   const ctx: any = getRequestContext();
@@ -246,10 +218,10 @@ export async function GET(req: Request) {
     const diag = await getDiagnostics(DB);
 
     if (includeGames) {
-      const games = await DB.prepare(`SELECT id, name, slug FROM games ORDER BY id LIMIT 200;`).all();
+      const maps = await loadGameMaps(DB);
       return json({
         ...diag,
-        games: (games as any)?.results ?? games,
+        games: maps.games.sort((a, b) => (a.slug || "").localeCompare(b.slug || "")),
       });
     }
 
@@ -305,6 +277,7 @@ export async function POST(req: Request) {
   if (!headers.length) return json({ build: BUILD_ID, error: "CSV appears to have no header row." }, { status: 400 });
   if (!rows.length) return json({ build: BUILD_ID, error: "CSV has a header but no data rows." }, { status: 400 });
 
+  // Required by your cards schema (NOT NULL)
   const requiredCols = ["game_id", "canonical_name", "name_sort"];
   for (const col of requiredCols) {
     if (!headers.includes(col)) {
@@ -315,24 +288,16 @@ export async function POST(req: Request) {
     }
   }
 
-  // ✅ Seed games first
-  const seed = await seedGames(DB, rows);
-
-  // 🚨 HARD FAIL EARLY if seeding didn't create required parent rows
-  const missingParents = seed.attempted.filter((gid) => (seed.gameExists[gid] ?? 0) === 0);
-  if (missingParents.length) {
-    const diag = await getDiagnostics(DB);
-    return json(
-      {
-        build: BUILD_ID,
-        error: "Cannot import cards because required parent games rows are missing.",
-        missingParents,
-        seed,
-        diagnostics: diag,
-      },
-      { status: 500 }
-    );
+  // Collect non-UUID game_id values as slugs, and ensure those slugs exist (optional safety)
+  const slugSet = new Set<string>();
+  for (const r of rows) {
+    const v = (r.game_id ?? "").toString().trim();
+    if (v && !isUuidLike(v)) slugSet.add(v);
   }
+  const ensured = await ensureGameSlugsExist(DB, slugSet);
+
+  // Load maps once
+  const maps = await loadGameMaps(DB);
 
   const nowIso = new Date().toISOString();
 
@@ -356,12 +321,14 @@ export async function POST(req: Request) {
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
-    const rowNumber = i + 2;
+    const rowNumber = i + 2; // header is line 1
 
     try {
-      const game_id = requireString(r.game_id, "game_id");
       const canonical_name = requireString(r.canonical_name, "canonical_name");
       const name_sort = requireString(r.name_sort, "name_sort");
+
+      const rawGame = requireString(r.game_id, "game_id");
+      const game_id = await resolveGameIdOrThrow(DB, rawGame, maps);
 
       const id = canonical_name;
 
@@ -416,6 +383,9 @@ export async function POST(req: Request) {
     inserted,
     skipped,
     errors,
-    seed,
+    game_resolution: {
+      ensured,
+      note: "CSV may use game_id as slug (e.g. 'pokemon'); importer maps slug->games.id UUID.",
+    },
   });
 }
