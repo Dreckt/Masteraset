@@ -1,0 +1,4 @@
+game_slug,set_name,set_code,release_date,default_language,total_cards,card_id,card_name,collector_number,language,rarity,rarity_rank,variant,variant_rank,image_url
+pokemon,Base Set,base1,1999-01-09,en,102,base1-4,Charizard,4/102,en,Holo Rare,1,normal,1,https://images.pokemontcg.io/base1/4_hires.png
+pokemon,Base Set,base1,1999-01-09,en,102,base1-7,Blastoise,7/102,en,Holo Rare,1,normal,1,https://images.pokemontcg.io/base1/7_hires.png
+weiss,Quintessential Quintuplets,5HY,2021-01-01,en,100,5HY-036,Nino Nakano,036,en,SP,5,normal,1,https://example.com/nino.png

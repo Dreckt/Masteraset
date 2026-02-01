@@ -21,3 +21,6 @@ yarn-error.log*
 # OS/editor
 .DS_Store
 Thumbs.db
+.dev.vars
+.env
+.env.local

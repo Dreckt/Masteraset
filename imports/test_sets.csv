@@ -1,0 +1,3 @@
+game_id,id,name,code,release_date,total_cards,default_language
+pokemon,testset1,Test Set One,TST1,2026-01-01,123,en
+weiss,testset2,Test Set Two,,2026-02-01,60,en

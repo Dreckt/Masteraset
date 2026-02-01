@@ -1,0 +1,6 @@
+game_slug,set_name,card_id,card_name,rarity,year,image_source,image_filename
+pokemon,Base Set,base1-004,Charizard,Rare,1999,https://example.com/base1-004.png,pokemon_base1_004.png
+weiss,Quintessential Quintuplets,5HY-WE43-E36SP,Unresolved Feelings,SP,2023,local:imports/images/weiss/5HY-WE43-E36SP.jpg,weiss_5hy_e36sp.jpg
+one-piece,Romance Dawn,OP01-001,Monkey D. Luffy,Common,2022,https://example.com/op01-001.jpg,onepiece_op01_001.jpg
+lorcana,The First Chapter,LC01-001,Mickey Mouse,Common,2023,local:imports/images/lorcana/LC01-001.png,lorcana_lc01_001.png
+mtg,Kaldheim,KHM-001,Esika,God of the Tree,Mythic,2021,https://example.com/khm-001.jpg,mtg_khm_001.jpg

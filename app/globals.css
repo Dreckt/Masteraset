@@ -1,361 +1,167 @@
-/* Master A Set Design System */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
+/* =========================
+   MasteraSet Theme Tokens
+   ========================= */
 :root {
-  --bg: #0b0f14;
-  --panel: #111827;
-  --card: #0f172a;
-  --border: #1f2937;
-  --text: #e5e7eb;
-  --muted: #9ca3af;
-  --brand: #6366f1;
-  --brand-glow: #818cf8;
+  --ms-bg: #0b0e14;
+  --ms-text: #ededed;
+  --ms-muted: #a7b0c0;
+
+  --ms-panel: rgba(16, 24, 38, 0.72);
+  --ms-panel-2: rgba(15, 21, 32, 0.72);
+
+  --ms-cyan: #00f0ff;
+  --ms-pink: #ff3d81;
+  --ms-gold: #ffd166;
+
+  --ms-border: rgba(255, 255, 255, 0.10);
+  --ms-border-2: rgba(255, 255, 255, 0.16);
+
+  --ms-shadow: rgba(0, 0, 0, 0.45);
 }
 
-* {
-  box-sizing: border-box;
+html,
+body {
+  height: 100%;
 }
 
-html, body {
-  margin: 0;
-  background: radial-gradient(1200px 600px at 20% -10%, #1e1b4b 0%, #020617 60%);
-  color: var(--text);
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+body {
+  background: radial-gradient(1200px 600px at 20% -10%, rgba(0, 240, 255, 0.12), transparent 55%),
+              radial-gradient(900px 500px at 95% 0%, rgba(255, 61, 129, 0.10), transparent 55%),
+              var(--ms-bg);
+  color: var(--ms-text);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* Links */
 a {
-  color: var(--text);
+  color: inherit;
   text-decoration: none;
 }
-
 a:hover {
-  color: var(--brand-glow);
+  text-decoration: underline;
 }
 
-/* Layout */
-.app-shell {
+/* =========================
+   Layout Helpers
+   ========================= */
+.ms-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 48px 32px;
+  padding: 24px;
 }
 
-/* Header */
-.topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 18px 32px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(10, 15, 25, 0.8);
-  backdrop-filter: blur(12px);
-}
-
-.logo {
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.logo span {
-  color: var(--brand);
-}
-
-/* Hero */
-.hero h1 {
-  font-size: 56px;
-  line-height: 1.05;
-  letter-spacing: -0.04em;
-  margin-bottom: 20px;
-}
-
-.hero p {
-  color: var(--muted);
-  font-size: 18px;
-  max-width: 640px;
-}
-
-/* Buttons */
-main a {
-  background: rgba(255,255,255,0.08);
-  color: white !important;
-  border: 1px solid rgba(255,255,255,0.25) !important;
-  backdrop-filter: blur(6px);
-  transition: all 0.15s ease;
-}
-
-main a:hover {
-  background: rgba(143,211,255,0.15);
-  border-color: rgba(143,211,255,0.6);
-  box-shadow: 0 0 18px rgba(143,211,255,0.35);
-}
-
-/* ===== Visual Polish: Logo Consistency + Background Graphics ===== */
-
-/* Make header logo "A" match hero accent */
-.logo span {
-  color: #8fd3ff;
-  text-shadow: 0 0 12px rgba(143,211,255,0.6);
-}
-
-/* Subtle background graphics (aurora blobs + faint grid) */
-body {
-  position: relative;
-  overflow-x: hidden;
-}
-
-body::before {
-  content: "";
-  position: fixed;
-  inset: -20%;
-  pointer-events: none;
-  z-index: -2;
-  background:
-    radial-gradient(600px 320px at 18% 12%, rgba(99,102,241,0.22), transparent 60%),
-    radial-gradient(520px 280px at 80% 35%, rgba(143,211,255,0.14), transparent 60%),
-    radial-gradient(700px 420px at 55% 85%, rgba(167,139,250,0.12), transparent 65%);
-  filter: blur(2px);
-}
-
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-  background-image:
-    linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px);
-  background-size: 64px 64px;
-  opacity: 0.08;
-}
-
-main a:hover {
-  background: rgba(143,211,255,0.15);
-  border-color: rgba(143,211,255,0.6);
-  box-shadow: 0 0 18px rgba(143,211,255,0.35);
-}
-
-/* ===== Unified Brand A ===== */
-.brand-accent {
-  color: #8fd3ff;
-  text-shadow: 0 0 12px rgba(143,211,255,0.65);
-}
-
-/* Force logo and hero A to match */
-.logo span,
-.brand-a {
-  color: #8fd3ff;
-  text-shadow: 0 0 12px rgba(143,211,255,0.65);
-}
-
-/* ===== Hero + Premium Buttons ===== */
-
-.hero-actions {
-  display: flex;
-  gap: 12px;
+.ms-section {
   margin-top: 18px;
-  flex-wrap: wrap;
+  margin-bottom: 18px;
 }
 
-/* Button base */
-.btn {
+/* =========================
+   Panels / Cards
+   ========================= */
+.ms-panel {
+  background: linear-gradient(180deg, var(--ms-panel), var(--ms-panel-2));
+  border: 1px solid var(--ms-border);
+  border-radius: 18px;
+  box-shadow: 0 14px 34px var(--ms-shadow);
+}
+
+.ms-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--ms-border);
+  border-radius: 16px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+}
+
+.ms-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.10);
+}
+
+/* =========================
+   Chips / Badges
+   ========================= */
+.ms-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--ms-border);
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: var(--ms-muted);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* =========================
+   Buttons (CSS-only)
+   ========================= */
+.ms-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   padding: 10px 14px;
-  border-radius: 12px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.06);
-  color: rgba(255,255,255,0.92);
-  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, border-color 0.12s ease;
-}
-
-.btn:hover {
-  transform: translateY(-1px);
-  border-color: rgba(143,211,255,0.55);
-  box-shadow: 0 0 18px rgba(143,211,255,0.22);
-}
-
-.btn:active {
-  transform: translateY(0px);
-}
-
-/* Primary */
-.btn.primary {
-  background: linear-gradient(180deg, rgba(143,211,255,0.22), rgba(99,102,241,0.18));
-  border-color: rgba(143,211,255,0.55);
-  box-shadow: 0 0 22px rgba(143,211,255,0.18);
-}
-
-/* Secondary */
-.btn.secondary {
-  background: rgba(255,255,255,0.07);
-}
-
-/* Ghost (dev link) */
-.btn.ghost {
-  background: rgba(255,255,255,0.03);
-  border-color: rgba(255,255,255,0.12);
-  opacity: 0.9;
-}
-
-/* Hero card-texture overlay (subtle) */
-.app-shell {
-  position: relative;
-}
-
-.app-shell::before {
-  content: "";
-  position: absolute;
-  inset: -40px -20px auto -20px;
-  height: 360px;
-  pointer-events: none;
-  z-index: -1;
-  background:
-    radial-gradient(700px 260px at 20% 0%, rgba(99,102,241,0.22), transparent 60%),
-    radial-gradient(700px 260px at 80% 20%, rgba(143,211,255,0.16), transparent 60%),
-    linear-gradient(to bottom, rgba(255,255,255,0.06), transparent 70%);
-
-  /* faint “card grid” */
-  mask-image: linear-gradient(to bottom, rgba(0,0,0,1), rgba(0,0,0,0));
-}
-
-.app-shell::after {
-  content: "";
-  position: absolute;
-  inset: -40px -20px auto -20px;
-  height: 360px;
-  pointer-events: none;
-  z-index: -1;
-  background-image:
-    linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px);
-  background-size: 120px 80px;
-  opacity: 0.10;
-  mask-image: linear-gradient(to bottom, rgba(0,0,0,0.9), rgba(0,0,0,0));
-}
-
-/* ===== Hero Glass Card ===== */
-
-.hero-wrap {
-  display: flex;
-  justify-content: center;
-  padding-top: 40px;
-}
-
-.hero-card {
-  max-width: 900px;
-  width: 100%;
-  padding: 42px 40px 44px;
-  border-radius: 20px;
-  background: linear-gradient(
-    180deg,
-    rgba(15,23,42,0.9),
-    rgba(2,6,23,0.9)
-  );
-  border: 1px solid rgba(255,255,255,0.08);
-  box-shadow:
-    0 40px 80px rgba(0,0,0,0.45),
-    inset 0 1px 0 rgba(255,255,255,0.04);
-  backdrop-filter: blur(16px);
-}
-
-/* Hero spacing */
-.hero-card p {
-  max-width: 720px;
-  font-size: 16px;
-  line-height: 1.6;
-}
-
-.hero-card .note {
-  font-size: 13px;
-  opacity: 0.7;
-}
-
-/* ===== Background FX: grid + foil + glow ===== */
-
-/* keep the page from creating horizontal scroll due to effects */
-html, body { overflow-x: hidden; }
-
-/* Use pseudo layers on body so it applies everywhere */
-body::before,
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* Layer 1: faint grid + vignette */
-body::before {
-  opacity: 0.55;
-  background:
-    radial-gradient(900px 500px at 50% 20%, rgba(143,211,255,0.18), transparent 60%),
-    radial-gradient(700px 500px at 15% 80%, rgba(99,102,241,0.18), transparent 60%),
-    radial-gradient(900px 650px at 85% 85%, rgba(168,85,247,0.12), transparent 65%),
-    linear-gradient(to bottom, rgba(0,0,0,0.25), rgba(0,0,0,0.55)),
-    /* grid */
-    linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
-  background-size:
-    auto,
-    auto,
-    auto,
-    auto,
-    48px 48px,
-    48px 48px;
-  background-position:
-    center,
-    center,
-    center,
-    center,
-    0 0,
-    0 0;
-  mix-blend-mode: screen;
-}
-
-/* Layer 2: diagonal “foil” sweep */
-body::after {
-  opacity: 0.35;
-  background:
-    linear-gradient(115deg,
-      transparent 0%,
-      rgba(143,211,255,0.10) 22%,
-      rgba(99,102,241,0.10) 38%,
-      rgba(168,85,247,0.08) 52%,
-      transparent 70%
-    );
-  transform: translateY(-8%) rotate(-1deg);
-  filter: blur(0.5px);
-}
-
-/* Ensure your actual app content renders above background layers */
-.topbar,
-.app-shell,
-.hero-wrap {
-  position: relative;
-  z-index: 1;
-}
-/* ===== Simple Grid + Tiles ===== */
-.page {
-  max-width: 1000px;
-  margin: 0 auto;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 12px;
-}
-
-.tile {
-  padding: 14px 14px;
   border-radius: 14px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.10);
-  backdrop-filter: blur(10px);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+  border: 1px solid var(--ms-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ms-text);
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.ms-btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--ms-border-2);
+  background: rgba(255, 255, 255, 0.06);
+  text-decoration: none;
+}
+
+.ms-btn-primary {
+  border-color: rgba(0, 240, 255, 0.35);
+  background: radial-gradient(800px 200px at 20% 0%, rgba(0, 240, 255, 0.18), rgba(255, 255, 255, 0.04));
+}
+
+.ms-btn-primary:hover {
+  border-color: rgba(0, 240, 255, 0.55);
+}
+
+.ms-btn-pink {
+  border-color: rgba(255, 61, 129, 0.35);
+  background: radial-gradient(800px 200px at 20% 0%, rgba(255, 61, 129, 0.18), rgba(255, 255, 255, 0.04));
+}
+
+.ms-btn-pink:hover {
+  border-color: rgba(255, 61, 129, 0.55);
+}
+
+/* =========================
+   Typography Helpers
+   ========================= */
+.ms-h1 {
+  font-size: 40px;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.ms-h2 {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.ms-muted {
+  color: var(--ms-muted);
+}
+
+.ms-accent-cyan {
+  color: var(--ms-cyan);
+}
+.ms-accent-pink {
+  color: var(--ms-pink);
 }
