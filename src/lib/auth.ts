@@ -1,225 +1,180 @@
-/**
- * Edge-safe auth helpers for Cloudflare Pages + D1.
- *
- * Exports required by the app:
- * - createSession
- * - clearSessionCookie
- * - getUserFromRequest
- * - isValidEmail, normalizeEmail, nowEpoch, randomToken, hashMagicToken, cleanupExpiredTokens, sendMagicLinkEmail
- *
- * IMPORTANT:
- * Cloudflare's env typing may not include all fields at compile-time.
- * So MAGIC_LINK_SECRET and SITE_URL are OPTIONAL in this type to satisfy TS,
- * but you should ensure they exist in your real runtime bindings.
- */
+// src/lib/auth.ts
+// Canonical auth constants/types live here.
+// All routes should import from here:  import { ... } from "@/lib/auth";
 
-export type Env = {
-  DB: D1Database;
+import { cookies } from "next/headers";
 
-  MAGIC_LINK_SECRET?: string;
-  SITE_URL?: string;
+export const SESSION_COOKIE_NAME = "masteraset_session";
 
-  ADMIN_TOKEN?: string;
-  FROM_EMAIL?: string;
-};
-
-export type User = {
+export type SessionUser = {
   id: string;
-  email?: string;
+  email?: string | null;
+  name?: string | null;
 };
 
-/** -----------------------------
- *  Basics
- *  ----------------------------- */
+export type SessionData = {
+  user: SessionUser;
+};
 
-export function normalizeEmail(email: string): string {
-  return String(email || "").trim().toLowerCase();
-}
+/**
+ * Create a session and set the cookie.
+ *
+ * NOTE: Intentionally flexible (...args: any[]) to match existing call-sites.
+ */
+export async function createSession(...args: any[]): Promise<any> {
+  // Try to locate a user/session payload in args
+  const payloadCandidate =
+    args.find((a) => a && typeof a === "object" && ("user" in a || "id" in a)) ?? null;
 
-export function isValidEmail(email: string): boolean {
-  const e = normalizeEmail(email);
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
-}
+  const user: SessionUser | null =
+    payloadCandidate && "user" in payloadCandidate
+      ? (payloadCandidate as any).user
+      : payloadCandidate && "id" in payloadCandidate
+        ? (payloadCandidate as any)
+        : null;
 
-export function nowEpoch(): number {
-  return Math.floor(Date.now() / 1000);
-}
+  const session: SessionData | null = user ? { user } : null;
 
-function base64UrlEncode(bytes: Uint8Array): string {
-  let s = "";
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-  const b64 = btoa(s);
-  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
+  // Encode session as base64 JSON
+  const value = session ? Buffer.from(JSON.stringify(session), "utf8").toString("base64") : "";
 
-function textToBytes(s: string): Uint8Array {
-  return new TextEncoder().encode(s);
-}
+  const cookieOptions = {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30 // 30 days
+  };
 
-function bytesToHex(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
-  let out = "";
-  for (const b of bytes) out += b.toString(16).padStart(2, "0");
-  return out;
-}
+  // If a Response-like object was passed, attach Set-Cookie header
+  const responseCandidate = args.find(
+    (a) =>
+      a &&
+      typeof a === "object" &&
+      typeof (a as any).headers?.set === "function" &&
+      typeof (a as any).headers?.get === "function"
+  );
 
-/** -----------------------------
- *  Magic link helpers
- *  ----------------------------- */
+  if (responseCandidate) {
+    const existing = (responseCandidate as any).headers.get("set-cookie");
+    const setCookie = serializeCookie(SESSION_COOKIE_NAME, value, cookieOptions);
+    (responseCandidate as any).headers.set(
+      "set-cookie",
+      existing ? `${existing}, ${setCookie}` : setCookie
+    );
+    return responseCandidate;
+  }
 
-export function randomToken(byteLength = 32): string {
-  const bytes = new Uint8Array(byteLength);
-  crypto.getRandomValues(bytes);
-  return base64UrlEncode(bytes);
-}
-
-export async function hashMagicToken(token: string, secret: string): Promise<string> {
-  const input = `${secret}::${token}`;
-  const digest = await crypto.subtle.digest("SHA-256", textToBytes(input));
-  return bytesToHex(digest);
-}
-
-export async function cleanupExpiredTokens(env: { DB: D1Database }): Promise<void> {
+  // Otherwise, set cookie via Next cookies() (server runtime)
   try {
-    const now = nowEpoch();
-    await env.DB.prepare(`DELETE FROM login_tokens WHERE expires_at <= ? OR used_at IS NOT NULL`)
-      .bind(now)
-      .run();
+    cookies().set(SESSION_COOKIE_NAME, value, cookieOptions);
   } catch {
-    // best effort
+    // cookies() may be unavailable in some runtimes; ignore.
+  }
+
+  return session;
+}
+
+/**
+ * Read session user from a request (or from Next cookies()).
+ */
+export async function getUserFromRequest(...args: any[]): Promise<any> {
+  const req = args.find((a) => a && typeof a === "object" && typeof (a as any).headers?.get === "function");
+
+  let raw: string | null = null;
+
+  // Try request headers first
+  if (req) {
+    const cookieHeader = (req as any).headers.get("cookie") as string | null;
+    raw = cookieHeader ? readCookieFromHeader(cookieHeader, SESSION_COOKIE_NAME) : null;
+  }
+
+  // Fallback: Next cookies()
+  if (!raw) {
+    try {
+      raw = cookies().get(SESSION_COOKIE_NAME)?.value ?? null;
+    } catch {
+      raw = null;
+    }
+  }
+
+  if (!raw) return null;
+
+  try {
+    const json = Buffer.from(raw, "base64").toString("utf8");
+    const data = JSON.parse(json) as SessionData;
+    return data?.user ?? null;
+  } catch {
+    return null;
   }
 }
 
-export async function sendMagicLinkEmail(_args: {
-  env: Env;
-  toEmail: string;
-  magicLinkUrl: string;
-}): Promise<void> {
-  // Safe no-op until you wire email delivery.
-  return;
-}
+/**
+ * Destroy session by expiring the cookie.
+ */
+export async function destroySession(...args: any[]): Promise<void> {
+  const responseCandidate = args.find(
+    (a) =>
+      a &&
+      typeof a === "object" &&
+      typeof (a as any).headers?.set === "function" &&
+      typeof (a as any).headers?.get === "function"
+  );
 
-/** -----------------------------
- *  Admin helper (optional)
- *  ----------------------------- */
-
-export function isAdminRequest(req: Request, env: Env): boolean {
-  if (!env.ADMIN_TOKEN) return true;
-  const token = req.headers.get("x-admin-token")?.trim();
-  return Boolean(token && token === env.ADMIN_TOKEN);
-}
-
-/** -----------------------------
- *  Session helpers (required exports)
- *  ----------------------------- */
-
-const SESSION_COOKIE = "ms_session";
-const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14; // 14 days
-
-function json(payload: unknown, status = 200, headers?: HeadersInit): Response {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: { "content-type": "application/json", ...(headers || {}) },
+  const expired = serializeCookie(SESSION_COOKIE_NAME, "", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0
   });
+
+  if (responseCandidate) {
+    (responseCandidate as any).headers.set("set-cookie", expired);
+    return;
+  }
+
+  try {
+    cookies().set(SESSION_COOKIE_NAME, "", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0
+    });
+  } catch {
+    // ignore
+  }
 }
 
-function buildCookie(name: string, value: string, maxAgeSeconds: number): string {
-  const parts = [
-    `${name}=${encodeURIComponent(value)}`,
-    `Path=/`,
-    `HttpOnly`,
-    `SameSite=Lax`,
-    `Max-Age=${Math.max(0, Math.floor(maxAgeSeconds))}`,
-    `Secure`,
-  ];
-  return parts.join("; ");
-}
-
-function clearCookie(name: string): string {
-  return `${name}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Secure`;
-}
-
-function getCookie(req: Request, name: string): string | null {
-  const header = req.headers.get("cookie");
-  if (!header) return null;
-
+/** Minimal cookie parsing/serialization (no extra deps) */
+function readCookieFromHeader(header: string, name: string): string | null {
   const parts = header.split(";").map((p) => p.trim());
-  for (const p of parts) {
-    const idx = p.indexOf("=");
-    if (idx === -1) continue;
-    const k = p.slice(0, idx).trim();
-    if (k === name) return decodeURIComponent(p.slice(idx + 1));
+  for (const part of parts) {
+    if (part.startsWith(name + "=")) return part.slice(name.length + 1);
   }
   return null;
 }
 
-export async function createSession(opts: {
-  env: { DB: D1Database };
-  userId: string;
-  email?: string;
-  ttlSeconds?: number;
-}): Promise<Response> {
-  const { env, userId, email } = opts;
-  const ttl = typeof opts.ttlSeconds === "number" ? opts.ttlSeconds : SESSION_TTL_SECONDS;
-
-  const sessionId = randomToken(32);
-  const expiresAt = nowEpoch() + ttl;
-
-  // Best-effort DB insert (schema may evolve)
-  try {
-    await env.DB.prepare(
-      `INSERT INTO sessions (session_id, user_id, email, expires_at) VALUES (?, ?, ?, ?)`
-    )
-      .bind(sessionId, userId, email ?? null, expiresAt)
-      .run();
-  } catch {
-    // best effort
+function serializeCookie(
+  name: string,
+  value: string,
+  opts: {
+    httpOnly?: boolean;
+    secure?: boolean;
+    sameSite?: "lax" | "strict" | "none";
+    path?: string;
+    maxAge?: number;
   }
+): string {
+  const enc = encodeURIComponent;
+  let out = `${name}=${enc(value)}`;
 
-  const setCookie = buildCookie(SESSION_COOKIE, sessionId, ttl);
-  return json({ ok: true }, 200, { "Set-Cookie": setCookie });
-}
+  if (opts.maxAge !== undefined) out += `; Max-Age=${opts.maxAge}`;
+  if (opts.path) out += `; Path=${opts.path}`;
+  if (opts.sameSite) out += `; SameSite=${opts.sameSite}`;
+  if (opts.secure) out += `; Secure`;
+  if (opts.httpOnly) out += `; HttpOnly`;
 
-export async function clearSessionCookie(opts: {
-  env: { DB: D1Database };
-  request: Request;
-}): Promise<Response> {
-  const { env, request } = opts;
-
-  const sessionId = getCookie(request, SESSION_COOKIE);
-  if (sessionId) {
-    try {
-      await env.DB.prepare(`DELETE FROM sessions WHERE session_id = ?`).bind(sessionId).run();
-    } catch {
-      // best effort
-    }
-  }
-
-  return json({ ok: true }, 200, { "Set-Cookie": clearCookie(SESSION_COOKIE) });
-}
-
-export async function getUserFromRequest(opts: {
-  env: { DB: D1Database };
-  request: Request;
-}): Promise<User | null> {
-  const { env, request } = opts;
-
-  const sessionId = getCookie(request, SESSION_COOKIE);
-  if (!sessionId) return null;
-
-  try {
-    const now = nowEpoch();
-    const sess = await env.DB.prepare(
-      `SELECT user_id as userId, email, expires_at as expiresAt FROM sessions WHERE session_id = ? LIMIT 1`
-    )
-      .bind(sessionId)
-      .first<{ userId?: string; email?: string; expiresAt?: number }>();
-
-    if (!sess?.userId) return null;
-    if (typeof sess.expiresAt === "number" && sess.expiresAt <= now) return null;
-
-    return { id: String(sess.userId), email: sess.email ? String(sess.email) : undefined };
-  } catch {
-    return null;
-  }
+  return out;
 }
