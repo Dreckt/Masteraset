@@ -1,7 +1,10 @@
 import { headers } from "next/headers";
 import Link from "next/link";
-import { getEnv } from "@/lib/env";
-import { getUserFromRequest } from "@/lib/auth";
+
+// IMPORTANT: Cloudflare Pages build is not resolving the "@/..." alias here,
+// so we use relative imports from the repo root.
+import { getEnv } from "../../src/lib/env";
+import { getUserFromRequest } from "../../src/lib/auth";
 
 export const runtime = "edge";
 
@@ -26,9 +29,7 @@ export default async function MePage() {
     return (
       <div style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
         <h1 style={{ fontSize: 28, marginBottom: 12 }}>You’re not signed in</h1>
-        <p style={{ marginBottom: 16 }}>
-          Please sign in to view your account.
-        </p>
+        <p style={{ marginBottom: 16 }}>Please sign in to view your account.</p>
         <Link href="/login">Go to Login</Link>
       </div>
     );
