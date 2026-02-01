@@ -1,26 +1,32 @@
-export const runtime = "edge";
-export const dynamic = "force-dynamic";
-
 import { NextResponse } from "next/server";
-import { getRequestContext } from "@cloudflare/next-on-pages";
-import { clearSessionCookie } from "@/lib/auth";
 
-type Env = { DB: D1Database };
+export const runtime = "edge";
 
-export async function GET(req: Request) {
-  const ctx = getRequestContext();
-  const env = ctx.env as unknown as Env;
+export async function POST() {
+  const res = NextResponse.json({ ok: true });
 
-  // Clear cookie + delete session in DB (best effort)
-  const cleared = await clearSessionCookie({
-    env: { DB: env.DB },
-    request: req,
-  });
+  const cookieNames = [
+    "session",
+    "SESSION",
+    "masteraset_session",
+    "masteraset_session_id",
+    "__Host-session",
+    "__Secure-session",
+  ];
 
-  // Redirect home and forward Set-Cookie header
-  const res = NextResponse.redirect(new URL("/", req.url));
-  const setCookie = cleared.headers.get("Set-Cookie");
-  if (setCookie) res.headers.set("Set-Cookie", setCookie);
+  for (const name of cookieNames) {
+    res.cookies.set(name, "", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
+  }
 
   return res;
+}
+
+export async function GET() {
+  return POST();
 }
