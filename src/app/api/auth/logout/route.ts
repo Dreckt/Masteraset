@@ -1,29 +1,32 @@
 import { NextResponse } from "next/server";
-import { type Env, SESSION_COOKIE_NAME } from "@/lib/auth";
 
 export const runtime = "edge";
 
-export async function POST(request: Request, context: { env: Env }) {
-  const env = context.env;
+export async function POST() {
+  const res = NextResponse.json({ ok: true });
 
-  const cookieHeader = request.headers.get("cookie") || "";
-  const match = cookieHeader.match(new RegExp(`(?:^|; )${SESSION_COOKIE_NAME}=([^;]*)`));
-  const sessionId = match ? decodeURIComponent(match[1]) : "";
+  const cookieNames = [
+    "session",
+    "SESSION",
+    "masteraset_session",
+    "masteraset_session_id",
+    "__Host-session",
+    "__Secure-session",
+  ];
 
-  if (sessionId) {
-    await env.DB.prepare(`DELETE FROM sessions WHERE id = ?`).bind(sessionId).run();
+  for (const name of cookieNames) {
+    res.cookies.set(name, "", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
   }
 
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set({
-    name: SESSION_COOKIE_NAME,
-    value: "",
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 0,
-  });
-
   return res;
+}
+
+export async function GET() {
+  return POST();
 }
