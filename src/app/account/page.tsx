@@ -1,73 +1,92 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
-type User = { id: string; email: string } | null;
+type MeResponse = {
+  user?: {
+    id?: string;
+    email?: string;
+    name?: string;
+  } | null;
+};
 
 export default function AccountPage() {
-  const [user, setUser] = useState<User>(null);
+  const [user, setUser] = useState<MeResponse["user"]>(null);
   const [loading, setLoading] = useState(true);
 
-  async function loadMe() {
-    setLoading(true);
-    const resp = await fetch("/api/auth/me", { method: "GET" });
-    const data = await resp.json().catch(() => ({}));
-    setUser(data?.user ?? null);
-    setLoading(false);
-  }
-
   useEffect(() => {
-    loadMe();
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const resp = await fetch("/api/auth/me", { method: "GET" });
+        const data = (await resp.json().catch(() => ({}))) as MeResponse;
+
+        if (!cancelled) setUser(data?.user ?? null);
+      } catch {
+        if (!cancelled) setUser(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    window.location.href = "/signin";
-  }
-
   return (
-    <main className="min-h-screen p-6 flex items-center justify-center">
-      <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg">
-        <h1 className="text-2xl font-semibold">Account</h1>
-
-        {loading ? (
-          <p className="mt-4 opacity-80">Loading…</p>
-        ) : user ? (
-          <>
-            <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
-              <div className="text-sm opacity-70">Signed in as</div>
-              <div className="text-lg font-medium mt-1">{user.email}</div>
-            </div>
-
-            <div className="mt-5 flex gap-3">
-              <button
-                onClick={() => (window.location.href = "/pokemon/sets")}
-                className="rounded-xl bg-white text-black px-4 py-2 font-medium hover:opacity-90"
-              >
-                Go to Pokémon Sets
-              </button>
-              <button
-                onClick={logout}
-                className="rounded-xl border border-white/15 bg-black/20 px-4 py-2 font-medium hover:border-white/25"
-              >
-                Log out
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="mt-4 opacity-80">You’re not signed in.</p>
-            <div className="mt-5">
-              <button
-                onClick={() => (window.location.href = "/signin")}
-                className="rounded-xl bg-white text-black px-4 py-2 font-medium hover:opacity-90"
-              >
-                Sign in
-              </button>
-            </div>
-          </>
-        )}
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 16,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        <h1 style={{ fontSize: 26, margin: 0 }}>Account</h1>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <Link href="/">Home</Link>
+          <Link href="/me">Me</Link>
+          <Link href="/dashboard">Dashboard</Link>
+        </div>
       </div>
-    </main>
+
+      {loading ? (
+        <p style={{ marginTop: 12 }}>Loading…</p>
+      ) : user ? (
+        <div style={{ marginTop: 12 }}>
+          <p style={{ margin: 0 }}>
+            <strong>Signed in</strong>
+          </p>
+          <p style={{ marginTop: 8, marginBottom: 0 }}>
+            {user.name ? <span>{user.name}</span> : null}
+            {user.email ? (
+              <>
+                {user.name ? " — " : null}
+                <span>{user.email}</span>
+              </>
+            ) : null}
+          </p>
+        </div>
+      ) : (
+        <div style={{ marginTop: 12 }}>
+          <p style={{ margin: 0 }}>
+            <strong>Not signed in</strong>
+          </p>
+          <p style={{ marginTop: 8 }}>
+            If you expected to be signed in, make sure <code>/api/auth/me</code> returns JSON like{" "}
+            <code>{"{ user: {...} }"}</code>.
+          </p>
+          <p style={{ marginTop: 8 }}>
+            <Link href="/login">Go to login</Link>
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
