@@ -50,7 +50,7 @@ export default function AdminImportPage() {
       });
 
       const contentType = res.headers.get("content-type") || "";
-      const payload = contentType.includes("application/json")
+      const payload: any = contentType.includes("application/json")
         ? await res.json()
         : await res.text();
 
@@ -74,7 +74,8 @@ export default function AdminImportPage() {
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
       <h1 className="text-3xl font-semibold tracking-tight">Admin Import</h1>
       <p className="mt-2 text-sm text-neutral-400">
-        Upload a CSV and import it into D1. (This page is intentionally not linked from the homepage.)
+        Upload a CSV and import it into D1. (This page is intentionally not
+        linked from the homepage.)
       </p>
 
       <div className="mt-8 space-y-6 rounded-2xl border border-white/10 bg-black/30 p-6 shadow">
@@ -89,7 +90,9 @@ export default function AdminImportPage() {
             autoComplete="off"
           />
           <p className="text-xs text-neutral-500">
-            Must match the <code className="rounded bg-white/10 px-1 py-0.5">ADMIN_TOKEN</code> secret in Cloudflare Pages.
+            Must match the{" "}
+            <code className="rounded bg-white/10 px-1 py-0.5">ADMIN_TOKEN</code>{" "}
+            secret in Cloudflare Pages.
           </p>
         </div>
 
@@ -119,7 +122,10 @@ export default function AdminImportPage() {
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
             <p className="text-xs text-neutral-500">
-              Example: <code className="rounded bg-white/10 px-1 py-0.5">masteraset_cards_base_set_filled.csv</code>
+              Example:{" "}
+              <code className="rounded bg-white/10 px-1 py-0.5">
+                masteraset_cards_base_set_filled.csv
+              </code>
             </p>
           </div>
         </div>
@@ -156,7 +162,8 @@ export default function AdminImportPage() {
                 <span className="opacity-80">type:</span> {result.type}
               </div>
               <div>
-                <span className="opacity-80">parsed rows:</span> {result.parsedRows}
+                <span className="opacity-80">parsed rows:</span>{" "}
+                {result.parsedRows}
               </div>
               <div>
                 <span className="opacity-80">inserted:</span> {result.inserted}
@@ -172,7 +179,7 @@ export default function AdminImportPage() {
                   View errors ({result.errors.length})
                 </summary>
                 <pre className="mt-2 overflow-auto rounded-lg bg-black/30 p-3 text-xs text-emerald-100/90">
-{JSON.stringify(result.errors, null, 2)}
+                  {JSON.stringify(result.errors, null, 2)}
                 </pre>
               </details>
             ) : null}
@@ -181,12 +188,28 @@ export default function AdminImportPage() {
       </div>
 
       <div className="mt-10 text-xs text-neutral-500">
-        <div className="font-semibold text-neutral-400">Cards CSV required columns</div>
+        <div className="font-semibold text-neutral-400">
+          Cards CSV required columns
+        </div>
         <ul className="mt-2 list-disc space-y-1 pl-6">
-          <li><code className="rounded bg-white/10 px-1 py-0.5">game_id</code> (required)</li>
-          <li><code className="rounded bg-white/10 px-1 py-0.5">canonical_name</code> (required)</li>
-          <li><code className="rounded bg-white/10 px-1 py-0.5">name_sort</code> (required)</li>
-          <li>All other columns are optional (set_name, card_id, card_name, rarity, year, image_*).</li>
+          <li>
+            <code className="rounded bg-white/10 px-1 py-0.5">game_id</code>{" "}
+            (required)
+          </li>
+          <li>
+            <code className="rounded bg-white/10 px-1 py-0.5">
+              canonical_name
+            </code>{" "}
+            (required)
+          </li>
+          <li>
+            <code className="rounded bg-white/10 px-1 py-0.5">name_sort</code>{" "}
+            (required)
+          </li>
+          <li>
+            All other columns are optional (set_name, card_id, card_name, rarity,
+            year, image_*).
+          </li>
         </ul>
       </div>
     </div>
