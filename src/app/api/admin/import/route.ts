@@ -12,17 +12,11 @@ function json(data: any, init?: ResponseInit) {
 }
 
 function getAdminImportToken(env: any) {
-  // Your actual Cloudflare Pages secret name is ADMIN_IMPORT_TOKEN
-  return (
-    env?.ADMIN_IMPORT_TOKEN ??
-    (process.env as any)?.ADMIN_IMPORT_TOKEN ??
-    null
-  );
+  return env?.ADMIN_IMPORT_TOKEN ?? (process.env as any)?.ADMIN_IMPORT_TOKEN ?? null;
 }
 
 /**
  * Minimal CSV parser (supports quoted fields, commas, CRLF/LF).
- * Returns { headers, rows }, where rows are objects by header.
  */
 function parseCsv(text: string): { headers: string[]; rows: Record<string, string>[] } {
   const rows: string[][] = [];
@@ -100,19 +94,53 @@ function requireString(v: any, name: string): string {
   return s;
 }
 
+function titleCase(input: string) {
+  const s = (input ?? "").toString().trim();
+  if (!s) return s;
+  return s
+    .split(/[-_\s]+/g)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+/**
+ * Ensures every game_id present in the CSV exists in `games` (id, name, slug)
+ * so card inserts won't fail foreign key checks.
+ */
+async function seedGames(DB: D1Database, cardRows: Record<string, string>[]) {
+  const gameIds = new Set<string>();
+  for (const r of cardRows) {
+    const gid = (r.game_id ?? "").toString().trim();
+    if (gid) gameIds.add(gid);
+  }
+
+  if (gameIds.size === 0) return { seeded: 0, gameIds: [] as string[] };
+
+  const stmt = DB.prepare(
+    `INSERT OR IGNORE INTO games (id, name, slug) VALUES (?, ?, ?)`
+  );
+
+  let seeded = 0;
+  for (const gid of gameIds) {
+    const name = titleCase(gid); // "pokemon" -> "Pokemon"
+    const slug = gid;            // keep slug as the id (pokemon, mtg, etc.)
+    const res = await stmt.bind(gid, name, slug).run();
+    const changes = (res as any)?.meta?.changes;
+    if (typeof changes === "number" && changes > 0) seeded += changes;
+  }
+
+  return { seeded, gameIds: Array.from(gameIds) };
+}
+
 export async function POST(req: Request) {
-  // Cast to any so custom env vars don't fail TypeScript builds on Pages
   const ctx: any = getRequestContext();
   const env: any = ctx?.env;
 
   const adminTokenConfigured = getAdminImportToken(env);
-
   if (!adminTokenConfigured) {
     return json(
-      {
-        error:
-          "Import failed: ADMIN_IMPORT_TOKEN not configured in Cloudflare Pages (Production).",
-      },
+      { error: "Import failed: ADMIN_IMPORT_TOKEN not configured in Cloudflare Pages (Production)." },
       { status: 500 }
     );
   }
@@ -156,17 +184,15 @@ export async function POST(req: Request) {
   for (const col of requiredCols) {
     if (!headers.includes(col)) {
       return json(
-        {
-          error: `CSV missing required column: ${col}`,
-          requiredColumns: requiredCols,
-          foundColumns: headers,
-        },
+        { error: `CSV missing required column: ${col}`, requiredColumns: requiredCols, foundColumns: headers },
         { status: 400 }
       );
     }
   }
 
-  // Deterministic id prevents duplicates
+  // ✅ Seed missing games first to satisfy FK(cards.game_id -> games.id)
+  const seed = await seedGames(DB, rows);
+
   const nowIso = new Date().toISOString();
 
   let inserted = 0;
@@ -237,11 +263,7 @@ export async function POST(req: Request) {
         inserted += 1;
       }
     } catch (e: any) {
-      errors.push({
-        row: rowNumber,
-        message: e?.message || "Row failed",
-        canonical_name: r.canonical_name,
-      });
+      errors.push({ row: rowNumber, message: e?.message || "Row failed", canonical_name: r.canonical_name });
     }
   }
 
@@ -252,5 +274,9 @@ export async function POST(req: Request) {
     inserted,
     skipped,
     errors,
+    seeded: {
+      gamesInserted: seed.seeded,
+      gameIdsSeen: seed.gameIds,
+    },
   });
 }
