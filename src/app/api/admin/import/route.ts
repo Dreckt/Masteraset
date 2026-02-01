@@ -11,9 +11,23 @@ function json(data: any, init?: ResponseInit) {
   });
 }
 
+function getAdminToken(env: any) {
+  // Check several common names so you don’t get blocked by a naming mismatch.
+  return (
+    env?.ADMIN_TOKEN ??
+    env?.ADMIN_SECRET_TOKEN ??
+    env?.ADMIN_SECRET ??
+    env?.ADMIN_KEY ??
+    (process.env as any)?.ADMIN_TOKEN ??
+    (process.env as any)?.ADMIN_SECRET_TOKEN ??
+    (process.env as any)?.ADMIN_SECRET ??
+    (process.env as any)?.ADMIN_KEY ??
+    null
+  );
+}
+
 /**
  * Minimal CSV parser (supports quoted fields, commas, CRLF/LF).
- * Returns { headers, rows }, where rows are objects by header.
  */
 function parseCsv(text: string): { headers: string[]; rows: Record<string, string>[] } {
   const rows: string[][] = [];
@@ -92,15 +106,19 @@ function requireString(v: any, name: string): string {
 }
 
 export async function POST(req: Request) {
-  // IMPORTANT: cast context/env to any so custom secrets like ADMIN_TOKEN don't fail TS builds
   const ctx: any = getRequestContext();
   const env: any = ctx?.env;
 
-  const adminTokenConfigured =
-    env?.ADMIN_TOKEN ?? (process.env as any)?.ADMIN_TOKEN;
+  const adminTokenConfigured = getAdminToken(env);
 
   if (!adminTokenConfigured) {
-    return json({ error: "Import failed: ADMIN_TOKEN not configured" }, { status: 500 });
+    return json(
+      {
+        error:
+          "Import failed: ADMIN_TOKEN not configured (or named differently). Set ADMIN_TOKEN (recommended) or ADMIN_SECRET_TOKEN in Cloudflare Pages → Variables & Secrets, then redeploy.",
+      },
+      { status: 500 }
+    );
   }
 
   let form: FormData;
@@ -128,35 +146,25 @@ export async function POST(req: Request) {
     return json({ error: "Missing CSV file upload (field name: file)." }, { status: 400 });
   }
 
-  const buf = await file.arrayBuffer();
-  const text = new TextDecoder("utf-8").decode(buf);
+  const DB: D1Database | undefined = env?.DB;
+  if (!DB) return json({ error: "D1 binding DB not available in runtime env." }, { status: 500 });
 
+  const text = new TextDecoder("utf-8").decode(await file.arrayBuffer());
   const { headers, rows } = parseCsv(text);
+
   if (!headers.length) return json({ error: "CSV appears to have no header row." }, { status: 400 });
   if (!rows.length) return json({ error: "CSV has a header but no data rows." }, { status: 400 });
 
-  // Required by your cards schema (NOT NULL)
   const requiredCols = ["game_id", "canonical_name", "name_sort"];
   for (const col of requiredCols) {
     if (!headers.includes(col)) {
       return json(
-        {
-          error: `CSV missing required column: ${col}`,
-          requiredColumns: requiredCols,
-          foundColumns: headers,
-        },
+        { error: `CSV missing required column: ${col}`, requiredColumns: requiredCols, foundColumns: headers },
         { status: 400 }
       );
     }
   }
 
-  // D1 binding is DB in your wrangler.toml
-  const DB: D1Database | undefined = env?.DB;
-  if (!DB) {
-    return json({ error: "D1 binding DB not available in runtime env." }, { status: 500 });
-  }
-
-  // Deterministic id prevents duplicates
   const nowIso = new Date().toISOString();
 
   let inserted = 0;
@@ -179,7 +187,7 @@ export async function POST(req: Request) {
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
-    const rowNumber = i + 2; // CSV header is line 1
+    const rowNumber = i + 2;
 
     try {
       const game_id = requireString(r.game_id, "game_id");
@@ -227,20 +235,9 @@ export async function POST(req: Request) {
         inserted += 1;
       }
     } catch (e: any) {
-      errors.push({
-        row: rowNumber,
-        message: e?.message || "Row failed",
-        canonical_name: r.canonical_name,
-      });
+      errors.push({ row: rowNumber, message: e?.message || "Row failed", canonical_name: r.canonical_name });
     }
   }
 
-  return json({
-    ok: true,
-    type,
-    parsedRows: rows.length,
-    inserted,
-    skipped,
-    errors,
-  });
+  return json({ ok: true, type, parsedRows: rows.length, inserted, skipped, errors });
 }
