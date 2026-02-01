@@ -11,6 +11,14 @@ type CardRow = {
   image_large: string | null;
 };
 
+type CardsApiResponse = {
+  source?: string;
+  count?: number;
+  data?: CardRow[];
+  error?: string;
+  message?: string;
+};
+
 function getOriginFromHeaders() {
   const h = headers();
   const host = h.get("x-forwarded-host") || h.get("host") || "masteraset.com";
@@ -25,7 +33,7 @@ export default async function CardsGrid({ setId }: { setId: string }) {
     headers: { accept: "application/json" },
   });
 
-  const payload = await res.json().catch(() => null);
+  const payload = (await res.json().catch(() => null)) as CardsApiResponse | null;
 
   if (!res.ok) {
     return (
