@@ -1,1 +1,2 @@
--- No-op: total_cards was added in 0004b_sets_add_total_cards.sql
+-- NO-OP: total_cards added via 0004b hotfix migration.
+SELECT 1;
