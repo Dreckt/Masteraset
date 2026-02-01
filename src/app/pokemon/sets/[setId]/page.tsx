@@ -1,3 +1,4 @@
+// src/app/pokemon/sets/[setId]/page.tsx
 import Link from "next/link";
 import { headers } from "next/headers";
 
@@ -5,106 +6,136 @@ export const runtime = "edge";
 
 type PokemonSet = {
   id: string;
-  name: string;
+  name?: string;
   series?: string;
   releaseDate?: string;
   printedTotal?: number | null;
   total?: number | null;
-  images?: {
-    symbol?: string | null;
-    logo?: string | null;
-  };
 };
 
-function getOriginFromHeaders(): string {
+type PokemonCardRow = {
+  id: string;
+  setId: string;
+  name?: string | null;
+  number?: string | null;
+  rarity?: string | null;
+  images?: string | null;
+  updatedAt?: string | null;
+};
+
+function getBaseUrlFromHeaders() {
   const h = headers();
-  const xfProto = h.get("x-forwarded-proto");
-  const host = h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? "https";
+  const host = h.get("host") ?? "";
+  return host ? `${proto}://${host}` : "";
+}
 
-  if (host) {
-    const proto = xfProto || "https";
-    return `${proto}://${host}`;
+function safeJsonParse<T>(value: unknown, fallback: T): T {
+  if (typeof value !== "string") return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
   }
-
-  return "https://masteraset.com";
 }
 
 export default async function PokemonSetPage({
   params,
+  searchParams,
 }: {
   params: { setId: string };
+  searchParams?: { page?: string; pageSize?: string };
 }) {
-  const origin = getOriginFromHeaders();
   const setId = params.setId;
+  const page = Math.max(1, Number(searchParams?.page ?? "1") || 1);
+  const pageSize = Math.min(60, Math.max(1, Number(searchParams?.pageSize ?? "36") || 36));
 
-  // IMPORTANT: Do NOT use fetch({ cache: ... }) on Cloudflare Workers (not implemented)
-  const res = await fetch(`${origin}/api/pokemon/sets/${encodeURIComponent(setId)}`);
+  const baseUrl = getBaseUrlFromHeaders();
 
-  if (!res.ok) {
-    throw new Error(
-      `Failed to load set ${setId}. Status: ${res.status} ${res.statusText}`
-    );
-  }
+  const [setRes, cardsRes] = await Promise.all([
+    fetch(`${baseUrl}/api/pokemon/sets/${encodeURIComponent(setId)}`),
+    fetch(
+      `${baseUrl}/api/pokemon/cards?setId=${encodeURIComponent(setId)}&page=${page}&pageSize=${pageSize}`
+    ),
+  ]);
 
-  const json = (await res.json()) as { data?: PokemonSet };
-  const set = json.data;
+  const setJson = await setRes.json().catch(() => null);
+  const cardsJson = await cardsRes.json().catch(() => null);
 
-  if (!set) {
-    throw new Error(`No data returned for set: ${setId}`);
-  }
+  const set =
+    (setJson && (setJson.data ?? setJson.set ?? setJson)) || null;
+
+  const cards = (cardsJson?.data ?? []) as PokemonCardRow[];
+  const count = Number(cardsJson?.count ?? cards.length ?? 0);
+
+  const title = set?.name ?? `Set: ${setId}`;
+
+  const hasPrev = page > 1;
+  const hasNext = page * pageSize < count;
 
   return (
-    <main className="ms-container" style={{ paddingTop: 18, paddingBottom: 40 }}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <Link href="/pokemon" className="ms-link">
-          Pokémon
+    <main style={{ padding: 20 }}>
+      <Link href="/pokemon/sets">← Back to sets</Link>
+
+      <h1 style={{ marginTop: 12 }}>{title}</h1>
+
+      <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
+        <Link
+          href={`/pokemon/sets/${setId}?page=${Math.max(1, page - 1)}&pageSize=${pageSize}`}
+          style={{ opacity: hasPrev ? 1 : 0.4, pointerEvents: hasPrev ? "auto" : "none" }}
+        >
+          Prev
         </Link>
-        <span style={{ opacity: 0.5 }}>›</span>
-        <Link href="/pokemon/sets" className="ms-link">
-          Sets
+
+        <span>Page {page}</span>
+
+        <Link
+          href={`/pokemon/sets/${setId}?page=${page + 1}&pageSize=${pageSize}`}
+          style={{ opacity: hasNext ? 1 : 0.4, pointerEvents: hasNext ? "auto" : "none" }}
+        >
+          Next
         </Link>
-        <span style={{ opacity: 0.5 }}>›</span>
-        <span style={{ opacity: 0.85 }}>{set.name}</span>
-      </div>
-
-      <div style={{ marginTop: 14 }}>
-        <h1 style={{ margin: 0, fontSize: 26, lineHeight: 1.15 }}>
-          {set.name}
-        </h1>
-
-        <div style={{ marginTop: 8, opacity: 0.8 }}>
-          <span>{set.series ?? "—"}</span>
-          {set.releaseDate ? (
-            <>
-              <span style={{ opacity: 0.5 }}> • </span>
-              <span>{set.releaseDate}</span>
-            </>
-          ) : null}
-        </div>
-
-        <div style={{ marginTop: 10, opacity: 0.75 }}>
-          Total cards: {set.total ?? "—"}
-          <span style={{ opacity: 0.5 }}> • </span>
-          Printed total: {set.printedTotal ?? "—"}
-        </div>
       </div>
 
       <div
         style={{
-          marginTop: 18,
-          border: "1px solid rgba(255,255,255,0.10)",
-          borderRadius: 14,
-          background: "rgba(255,255,255,0.03)",
-          padding: 14,
+          marginTop: 20,
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+          gap: 12,
         }}
       >
-        <div style={{ fontWeight: 800, marginBottom: 8 }}>Next</div>
-        <div style={{ opacity: 0.8 }}>
-          Cards grid for this set comes next — once the cards endpoint is wired
-          up to D1 (or your chosen source).
-        </div>
+        {cards.map((c) => {
+          const img = safeJsonParse<{ small?: string; large?: string }>(c.images, {});
+          const thumb = img.small ?? img.large ?? "";
+
+          return (
+            <Link
+              key={c.id}
+              href={`/pokemon/cards/${c.id}`}
+              style={{
+                display: "block",
+                border: "1px solid rgba(255,255,255,0.15)",
+                borderRadius: 10,
+                padding: 10,
+                textDecoration: "none",
+              }}
+            >
+              <div style={{ minHeight: 140, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {thumb ? (
+                  <img src={thumb} alt={c.name ?? c.id} style={{ width: "100%" }} />
+                ) : (
+                  <span>No image</span>
+                )}
+              </div>
+
+              <strong>{c.name ?? "Unknown"}</strong>
+              <div style={{ fontSize: 13, opacity: 0.8 }}>{c.number}</div>
+              <div style={{ fontSize: 13, opacity: 0.8 }}>{c.rarity}</div>
+            </Link>
+          );
+        })}
       </div>
     </main>
   );
 }
-
