@@ -1,18 +1,26 @@
-import { NextResponse } from "next/server";
-import { clearSessionCookie, getUserFromRequest } from "@/lib/auth";
-import { getEnv, nowIso, sha256Hex } from "@/lib/cloudflare";
-import { cookies } from "next/headers";
-
 export const runtime = "edge";
+export const dynamic = "force-dynamic";
 
-export async function POST(req: Request) {
-  const env = getEnv();
-  const c = cookies().get("ms_session")?.value;
-  if (c) {
-    const h = await sha256Hex(c);
-    // Delete session rows matching this cookie
-    await env.DB.prepare("DELETE FROM sessions WHERE session_hash = ?").bind(h).run();
-  }
-  clearSessionCookie();
-  return NextResponse.redirect(new URL("/", req.url));
+import { NextResponse } from "next/server";
+import { getRequestContext } from "@cloudflare/next-on-pages";
+import { clearSessionCookie } from "@/lib/auth";
+
+type Env = { DB: D1Database };
+
+export async function GET(req: Request) {
+  const ctx = getRequestContext();
+  const env = ctx.env as unknown as Env;
+
+  // Clear cookie + delete session in DB (best effort)
+  const cleared = await clearSessionCookie({
+    env: { DB: env.DB },
+    request: req,
+  });
+
+  // Redirect home and forward Set-Cookie header
+  const res = NextResponse.redirect(new URL("/", req.url));
+  const setCookie = cleared.headers.get("Set-Cookie");
+  if (setCookie) res.headers.set("Set-Cookie", setCookie);
+
+  return res;
 }
