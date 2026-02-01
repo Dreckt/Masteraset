@@ -11,9 +11,10 @@ export default async function MePage() {
   const ctx = getRequestContext();
   const env = ctx.env as unknown as Env;
 
+  // NOTE: In Pages/next-on-pages, the request is `ctx.req` (not `ctx.request`).
   const user = await getUserFromRequest({
     env: { DB: env.DB },
-    request: ctx.request,
+    request: ctx.req,
   });
 
   if (!user) {
