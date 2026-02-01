@@ -1,401 +1,177 @@
-// src/app/pokemon/sets/[setId]/page.tsx
+import Link from "next/link";
+
 export const runtime = "edge";
 
-type SearchParams = Record<string, string | string[] | undefined>;
-
-type PokemonSet = {
-  id?: string;
-  name?: string;
+type PokemonTCGSet = {
+  id: string;
+  name: string;
   series?: string;
-  releaseDate?: string; // sometimes "1999/01/09"
   printedTotal?: number;
   total?: number;
-  images?: any;
+  releaseDate?: string;
+  images?: {
+    symbol?: string;
+    logo?: string;
+  };
 };
 
-type PokemonCardRow = {
+type PokemonTCGCard = {
   id: string;
-  setId: string;
-  name: string | null;
-  number: string | null;
-  rarity: string | null;
-  images: string | null; // JSON string
-  raw: string | null;
-  updatedAt: string | null;
+  name: string;
+  number?: string;
+  rarity?: string;
+  images?: {
+    small?: string;
+    large?: string;
+  };
 };
 
-function first(v: string | string[] | undefined, fallback: string) {
-  if (Array.isArray(v)) return v[0] ?? fallback;
-  return v ?? fallback;
-}
+async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetch(url, {
+    // ✅ Cloudflare-safe: do NOT use fetch({ cache: ... })
+    headers: {
+      "Cache-Control": "no-store",
+    },
+  });
 
-function clampInt(v: string, def: number, min: number, max: number) {
-  const n = Number.parseInt(v, 10);
-  if (Number.isNaN(n)) return def;
-  return Math.min(max, Math.max(min, n));
-}
-
-function buildQuery(params: Record<string, string | number | undefined | null>) {
-  const sp = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) {
-    if (v === undefined || v === null) continue;
-    const s = String(v).trim();
-    if (!s) continue;
-    sp.set(k, s);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Request failed ${res.status} for ${url}: ${text.slice(0, 200)}`);
   }
-  const qs = sp.toString();
-  return qs ? `?${qs}` : "";
-}
 
-function parseImages(images: string | null) {
-  if (!images) return null;
-  try {
-    return JSON.parse(images);
-  } catch {
-    return null;
-  }
-}
-
-function normalizeCardNumber(num: string | null) {
-  if (!num) return { raw: "", sort: Number.MAX_SAFE_INTEGER };
-  // supports "4/102" or "4"
-  const head = num.split("/")[0]?.trim() ?? "";
-  const n = Number.parseInt(head, 10);
-  return { raw: num, sort: Number.isNaN(n) ? Number.MAX_SAFE_INTEGER : n };
+  return (await res.json()) as T;
 }
 
 export default async function PokemonSetPage({
   params,
-  searchParams,
 }: {
   params: { setId: string };
-  searchParams: SearchParams;
 }) {
-  const setId = params.setId;
+  const setId = params?.setId;
 
-  // query params
-  const page = clampInt(first(searchParams.page, "1"), 1, 1, 9999);
-  const pageSize = clampInt(first(searchParams.pageSize, "24"), 24, 6, 96);
-  const q = first(searchParams.q, "").trim();
-  const rarity = first(searchParams.rarity, "").trim();
-  const sort = first(searchParams.sort, "number"); // "number" | "name"
+  if (!setId) {
+    return (
+      <main style={{ padding: 16 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700 }}>Set not found</h1>
+        <p>Missing set id.</p>
+        <p>
+          <Link href="/pokemon/sets">Back to sets</Link>
+        </p>
+      </main>
+    );
+  }
 
-  // Fetch set meta
-  const setRes = await fetch(`/api/pokemon/sets/${encodeURIComponent(setId)}`, {
-    cache: "no-store",
-  });
-  const setJson: any = setRes.ok ? await setRes.json().catch(() => null) : null;
+  // These are your internal API routes (Cloudflare-safe; you already set no-store headers there).
+  const setUrl = `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/pokemon/sets/${encodeURIComponent(setId)}`;
+  const cardsUrl = `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/pokemon/cards?setId=${encodeURIComponent(setId)}`;
 
-  const set: PokemonSet | null =
-    (setJson && (setJson.data ?? setJson.set ?? setJson)) || null;
+  // If NEXT_PUBLIC_BASE_URL is not set in prod, relative URLs are safest.
+  const finalSetUrl = setUrl.startsWith("/api") || setUrl.startsWith("http") ? setUrl : `/api/pokemon/sets/${encodeURIComponent(setId)}`;
+  const finalCardsUrl =
+    cardsUrl.startsWith("/api") || cardsUrl.startsWith("http")
+      ? cardsUrl
+      : `/api/pokemon/cards?setId=${encodeURIComponent(setId)}`;
 
-  // Fetch cards from DB/API
-  const cardsRes = await fetch(
-    `/api/pokemon/cards${buildQuery({ setId, page, pageSize })}`,
-    { cache: "no-store" }
-  );
-  const cardsJson: any = cardsRes.ok ? await cardsRes.json().catch(() => null) : null;
+  let setData: { data?: PokemonTCGSet } = {};
+  let cardsData: { data?: PokemonTCGCard[] } = {};
 
-  const rows: PokemonCardRow[] = Array.isArray(cardsJson?.data)
-    ? (cardsJson.data as PokemonCardRow[])
-    : [];
+  try {
+    // ✅ Cloudflare-safe fetch wrapper (no cache param)
+    setData = await fetchJson<{ data?: PokemonTCGSet }>(finalSetUrl);
+  } catch (e: any) {
+    return (
+      <main style={{ padding: 16 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700 }}>Error loading set</h1>
+        <p style={{ opacity: 0.8 }}>{String(e?.message || e)}</p>
+        <p>
+          <Link href="/pokemon/sets">Back to sets</Link>
+        </p>
+      </main>
+    );
+  }
 
-  const totalCount =
-    typeof cardsJson?.count === "number"
-      ? cardsJson.count
-      : typeof set?.total === "number"
-      ? set.total
-      : rows.length;
+  try {
+    cardsData = await fetchJson<{ data?: PokemonTCGCard[] }>(finalCardsUrl);
+  } catch (e: any) {
+    // Don’t hard-crash the whole page if cards fail — show set info at least.
+    cardsData = { data: [] };
+  }
 
-  // Local filtering/sorting (on the loaded page of results)
-  const filtered = rows
-    .filter((c) => {
-      if (!q) return true;
-      const name = (c.name ?? "").toLowerCase();
-      const num = (c.number ?? "").toLowerCase();
-      const id = (c.id ?? "").toLowerCase();
-      const needle = q.toLowerCase();
-      return name.includes(needle) || num.includes(needle) || id.includes(needle);
-    })
-    .filter((c) => {
-      if (!rarity) return true;
-      return (c.rarity ?? "") === rarity;
-    });
+  const set = setData?.data;
+  const cards = cardsData?.data ?? [];
 
-  const sorted = [...filtered].sort((a, b) => {
-    if (sort === "name") {
-      return String(a.name ?? "").localeCompare(String(b.name ?? ""));
-    }
-    const an = normalizeCardNumber(a.number).sort;
-    const bn = normalizeCardNumber(b.number).sort;
-    if (an !== bn) return an - bn;
-    return String(a.name ?? "").localeCompare(String(b.name ?? ""));
-  });
-
-  const uniqueRarities = Array.from(
-    new Set(rows.map((c) => (c.rarity ?? "").trim()).filter(Boolean))
-  ).sort((a, b) => a.localeCompare(b));
-
-  // paging links
-  const totalPages = Math.max(1, Math.ceil(Number(totalCount || 0) / pageSize));
-  const prevDisabled = page <= 1;
-  const nextDisabled = page >= totalPages;
-
-  const baseParams = { pageSize, q: q || undefined, rarity: rarity || undefined, sort };
-
-  const prevHref = `/pokemon/sets/${encodeURIComponent(setId)}${buildQuery({
-    ...baseParams,
-    page: Math.max(1, page - 1),
-  })}`;
-
-  const nextHref = `/pokemon/sets/${encodeURIComponent(setId)}${buildQuery({
-    ...baseParams,
-    page: Math.min(totalPages, page + 1),
-  })}`;
-
-  const title = set?.name ?? `Set: ${setId}`;
-  const subtitleParts = [
-    set?.series ? String(set.series) : null,
-    set?.releaseDate ? String(set.releaseDate) : null,
-  ].filter(Boolean);
+  if (!set) {
+    return (
+      <main style={{ padding: 16 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700 }}>Set not found</h1>
+        <p>No set data returned for: {setId}</p>
+        <p>
+          <Link href="/pokemon/sets">Back to sets</Link>
+        </p>
+      </main>
+    );
+  }
 
   return (
-    <main className="ms-container" style={{ paddingTop: 18, paddingBottom: 40 }}>
-      {/* Breadcrumbs */}
-      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <a className="ms-link" href="/pokemon">
-          Pokémon
-        </a>
-        <span style={{ opacity: 0.5 }}>›</span>
-        <a className="ms-link" href="/pokemon/sets">
-          Sets
-        </a>
-        <span style={{ opacity: 0.5 }}>›</span>
-        <span style={{ opacity: 0.85 }}>{title}</span>
-      </div>
-
-      {/* Header */}
-      <div style={{ marginTop: 14 }}>
-        <h1 style={{ margin: 0, fontSize: 26, lineHeight: 1.15 }}>{title}</h1>
-
-        {subtitleParts.length > 0 ? (
-          <div style={{ marginTop: 8, opacity: 0.8 }}>
-            {subtitleParts.map((p, idx) => (
-              <span key={idx}>
-                {idx > 0 ? <span style={{ opacity: 0.5 }}> • </span> : null}
-                <span>{p}</span>
-              </span>
-            ))}
-          </div>
+    <main style={{ padding: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+        {set.images?.logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={set.images.logo} alt={`${set.name} logo`} style={{ height: 56 }} />
         ) : null}
 
-        <div style={{ marginTop: 10, opacity: 0.75 }}>
-          Total cards: {Number(set?.total ?? totalCount ?? 0)}
-          <span style={{ opacity: 0.5 }}> • </span>
-          Loaded: {rows.length}
-          <span style={{ opacity: 0.5 }}> • </span>
-          Page {page} / {totalPages}
-        </div>
-      </div>
-
-      {/* Controls */}
-      <div
-        style={{
-          marginTop: 14,
-          display: "flex",
-          gap: 10,
-          alignItems: "center",
-          flexWrap: "wrap",
-        }}
-      >
-        <a
-          className="ms-chip"
-          aria-disabled={prevDisabled}
-          style={prevDisabled ? { pointerEvents: "none", opacity: 0.5 } : undefined}
-          href={prevHref}
-        >
-          ← Prev
-        </a>
-
-        <a
-          className="ms-chip"
-          aria-disabled={nextDisabled}
-          style={nextDisabled ? { pointerEvents: "none", opacity: 0.5 } : undefined}
-          href={nextHref}
-        >
-          Next →
-        </a>
-
-        <span style={{ opacity: 0.7, fontSize: 13 }}>
-          Tip: try <code>?pageSize=12</code> or <code>?pageSize=48</code>
-        </span>
-      </div>
-
-      {/* Filters (server-rendered via GET form) */}
-      <form
-        method="GET"
-        action={`/pokemon/sets/${encodeURIComponent(setId)}`}
-        style={{
-          marginTop: 14,
-          display: "grid",
-          gridTemplateColumns: "minmax(220px, 1fr) 180px 160px 120px",
-          gap: 10,
-          alignItems: "end",
-        }}
-      >
         <div>
-          <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>Search</div>
-          <input
-            name="q"
-            defaultValue={q}
-            placeholder="Name, number (4/102), or id…"
-            style={{
-              width: "100%",
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: "1px solid rgba(255,255,255,0.12)",
-              background: "rgba(255,255,255,0.04)",
-              color: "inherit",
-              outline: "none",
-            }}
-          />
-        </div>
-
-        <div>
-          <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>Rarity</div>
-          <select
-            name="rarity"
-            defaultValue={rarity}
-            style={{
-              width: "100%",
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: "1px solid rgba(255,255,255,0.12)",
-              background: "rgba(255,255,255,0.04)",
-              color: "inherit",
-              outline: "none",
-            }}
-          >
-            <option value="">All</option>
-            {uniqueRarities.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>Sort</div>
-          <select
-            name="sort"
-            defaultValue={sort}
-            style={{
-              width: "100%",
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: "1px solid rgba(255,255,255,0.12)",
-              background: "rgba(255,255,255,0.04)",
-              color: "inherit",
-              outline: "none",
-            }}
-          >
-            <option value="number">Number</option>
-            <option value="name">Name</option>
-          </select>
-        </div>
-
-        <div>
-          <input type="hidden" name="pageSize" value={String(pageSize)} />
-          <button
-            type="submit"
-            className="ms-chip"
-            style={{
-              width: "100%",
-              cursor: "pointer",
-              border: "none",
-              background: "rgba(255,255,255,0.06)",
-            }}
-          >
-            Apply
-          </button>
-        </div>
-      </form>
-
-      {/* Cards Grid */}
-      <div style={{ marginTop: 16 }}>
-        {sorted.length === 0 ? (
-          <div className="ms-card" style={{ padding: 14, opacity: 0.85 }}>
-            No cards found for the current filters on this page.
-            <div style={{ opacity: 0.7, fontSize: 13, marginTop: 8 }}>
-              Try clearing Search/Rarity, or increase <code>pageSize</code>.
-            </div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>{set.name}</h1>
+          <div style={{ opacity: 0.8, marginTop: 4 }}>
+            {set.series ? <span>{set.series}</span> : null}
+            {set.releaseDate ? <span> · {set.releaseDate}</span> : null}
+            {typeof set.total === "number" ? <span> · {set.total} cards</span> : null}
           </div>
-        ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-              gap: 12,
-            }}
-          >
-            {sorted.map((c) => {
-              const imgs = parseImages(c.images);
-              const img = imgs?.small ?? null;
-
-              return (
-                <a
-                  key={c.id}
-                  className="ms-card"
-                  style={{ display: "block", padding: 12, textDecoration: "none" }}
-                  href={`/pokemon/cards/${encodeURIComponent(c.id)}`}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                    <div style={{ fontWeight: 800, lineHeight: 1.15 }}>{c.name ?? c.id}</div>
-                    <div style={{ opacity: 0.7, fontSize: 12 }}>{c.number ?? ""}</div>
-                  </div>
-
-                  {img ? (
-                    <img
-                      src={img}
-                      alt={c.name ?? c.id}
-                      style={{
-                        width: "100%",
-                        height: 220,
-                        objectFit: "contain",
-                        marginTop: 10,
-                      }}
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        marginTop: 10,
-                        height: 220,
-                        borderRadius: 12,
-                        border: "1px solid rgba(255,255,255,0.10)",
-                        background: "rgba(255,255,255,0.03)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        opacity: 0.7,
-                        fontSize: 13,
-                      }}
-                    >
-                      No image
-                    </div>
-                  )}
-
-                  <div style={{ marginTop: 10, opacity: 0.85, fontSize: 12 }}>
-                    <div>Rarity: {c.rarity ?? "—"}</div>
-                    <div style={{ opacity: 0.75 }}>ID: {c.id}</div>
-                  </div>
-                </a>
-              );
-            })}
-          </div>
-        )}
+        </div>
       </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <Link href="/pokemon/sets">← Back to sets</Link>
+      </div>
+
+      <h2 style={{ fontSize: 18, fontWeight: 700, marginTop: 18 }}>Cards</h2>
+
+      {cards.length === 0 ? (
+        <p style={{ opacity: 0.8 }}>No cards returned for this set yet.</p>
+      ) : (
+        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 }}>
+          {cards.map((c) => (
+            <li
+              key={c.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                border: "1px solid rgba(255,255,255,0.12)",
+                borderRadius: 10,
+                padding: 10,
+              }}
+            >
+              {c.images?.small ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={c.images.small} alt={c.name} style={{ width: 56, height: "auto", borderRadius: 6 }} />
+              ) : (
+                <div style={{ width: 56, height: 78, borderRadius: 6, background: "rgba(255,255,255,0.06)" }} />
+              )}
+
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700 }}>
+                  <Link href={`/pokemon/cards/${encodeURIComponent(c.id)}`}>{c.name}</Link>
+                </div>
+                <div style={{ opacity: 0.8, fontSize: 13 }}>
+                  {c.number ? `#${c.number}` : null}
+                  {c.rarity ? ` · ${c.rarity}` : null}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </main>
   );
 }
