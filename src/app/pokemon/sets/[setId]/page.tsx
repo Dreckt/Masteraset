@@ -1,4 +1,5 @@
 // src/app/pokemon/sets/[setId]/page.tsx
+export const runtime = "edge";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
