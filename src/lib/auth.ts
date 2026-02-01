@@ -1,6 +1,6 @@
 // src/lib/auth.ts
 // Canonical auth constants/types live here.
-// All routes should import from here:  import { ... } from "@/lib/auth";
+// Cloudflare Workers-safe (no Node Buffer).
 
 import { cookies } from "next/headers";
 
@@ -18,11 +18,9 @@ export type SessionData = {
 
 /**
  * Create a session and set the cookie.
- *
- * NOTE: Intentionally flexible (...args: any[]) to match existing call-sites.
+ * Intentionally flexible (...args: any[]) to match existing call-sites.
  */
 export async function createSession(...args: any[]): Promise<any> {
-  // Try to locate a user/session payload in args
   const payloadCandidate =
     args.find((a) => a && typeof a === "object" && ("user" in a || "id" in a)) ?? null;
 
@@ -34,9 +32,7 @@ export async function createSession(...args: any[]): Promise<any> {
         : null;
 
   const session: SessionData | null = user ? { user } : null;
-
-  // Encode session as base64 JSON
-  const value = session ? Buffer.from(JSON.stringify(session), "utf8").toString("base64") : "";
+  const value = session ? base64EncodeJson(session) : "";
 
   const cookieOptions = {
     httpOnly: true,
@@ -65,11 +61,11 @@ export async function createSession(...args: any[]): Promise<any> {
     return responseCandidate;
   }
 
-  // Otherwise, set cookie via Next cookies() (server runtime)
+  // Otherwise, set cookie via Next cookies()
   try {
     cookies().set(SESSION_COOKIE_NAME, value, cookieOptions);
   } catch {
-    // cookies() may be unavailable in some runtimes; ignore.
+    // ignore
   }
 
   return session;
@@ -79,17 +75,17 @@ export async function createSession(...args: any[]): Promise<any> {
  * Read session user from a request (or from Next cookies()).
  */
 export async function getUserFromRequest(...args: any[]): Promise<any> {
-  const req = args.find((a) => a && typeof a === "object" && typeof (a as any).headers?.get === "function");
+  const req = args.find(
+    (a) => a && typeof a === "object" && typeof (a as any).headers?.get === "function"
+  );
 
   let raw: string | null = null;
 
-  // Try request headers first
   if (req) {
     const cookieHeader = (req as any).headers.get("cookie") as string | null;
     raw = cookieHeader ? readCookieFromHeader(cookieHeader, SESSION_COOKIE_NAME) : null;
   }
 
-  // Fallback: Next cookies()
   if (!raw) {
     try {
       raw = cookies().get(SESSION_COOKIE_NAME)?.value ?? null;
@@ -100,13 +96,8 @@ export async function getUserFromRequest(...args: any[]): Promise<any> {
 
   if (!raw) return null;
 
-  try {
-    const json = Buffer.from(raw, "base64").toString("utf8");
-    const data = JSON.parse(json) as SessionData;
-    return data?.user ?? null;
-  } catch {
-    return null;
-  }
+  const data = base64DecodeJson<SessionData>(raw);
+  return data?.user ?? null;
 }
 
 /**
@@ -147,7 +138,7 @@ export async function destroySession(...args: any[]): Promise<void> {
   }
 }
 
-/** Minimal cookie parsing/serialization (no extra deps) */
+/** Cookie helpers */
 function readCookieFromHeader(header: string, name: string): string | null {
   const parts = header.split(";").map((p) => p.trim());
   for (const part of parts) {
@@ -177,4 +168,25 @@ function serializeCookie(
   if (opts.httpOnly) out += `; HttpOnly`;
 
   return out;
+}
+
+/** Workers-safe base64 JSON helpers (no Node Buffer) */
+function base64EncodeJson(obj: unknown): string {
+  const json = JSON.stringify(obj);
+  const bytes = new TextEncoder().encode(json);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+function base64DecodeJson<T>(b64: string): T | null {
+  try {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const json = new TextDecoder().decode(bytes);
+    return JSON.parse(json) as T;
+  } catch {
+    return null;
+  }
 }
