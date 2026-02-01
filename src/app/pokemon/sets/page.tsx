@@ -1,88 +1,93 @@
+// src/app/pokemon/sets/page.tsx
+import Link from "next/link";
 import { headers } from "next/headers";
 
 export const runtime = "edge";
+export const dynamic = "force-dynamic";
 
-interface PokemonSetRow {
+type PokemonSetRow = {
   id: string;
   name: string;
-  series: string;
-  releaseDate: string;
-  total: number;
-  printedTotal: number | null;
-  images_symbol: string | null;
-  images_logo: string | null;
-}
+  series?: string | null;
+  releaseDate?: string | null;
+  total?: number | null;
+  printedTotal?: number | null;
+  images?: {
+    symbol?: string | null;
+    logo?: string | null;
+  } | null;
+};
 
-function getBaseUrlFromHeaders(): string {
+type SetsApiResponse = {
+  data?: PokemonSetRow[];
+  count?: number;
+  source?: string;
+  error?: string;
+};
+
+function getOriginFromHeaders(): string {
   const h = headers();
-
-  const host =
-    h.get("x-forwarded-host") ||
-    h.get("host") ||
-    "masteraset.com";
-
-  const proto =
-    h.get("x-forwarded-proto") ||
-    "https";
-
+  const proto = h.get("x-forwarded-proto") ?? "https";
+  const host = h.get("host") ?? "masteraset.com";
   return `${proto}://${host}`;
 }
 
-async function getSets(): Promise<PokemonSetRow[]> {
-  const baseUrl = getBaseUrlFromHeaders();
-
-  const res = await fetch(`${baseUrl}/api/pokemon/sets`, {
-    cache: "no-store",
-  });
-
-  if (!res.ok) return [];
-
-  const payload: any = await res.json();
-  const data = (payload?.data ?? []) as PokemonSetRow[];
-
-  return Array.isArray(data) ? data : [];
-}
-
 export default async function PokemonSetsPage() {
-  const sets = await getSets();
+  const origin = getOriginFromHeaders();
+
+  // IMPORTANT: Do NOT pass { cache: "no-store" } here.
+  // Cloudflare Pages/Workers throws: "RequestInitializerDict.cache is not implemented"
+  const res = await fetch(`${origin}/api/pokemon/sets`);
+
+  if (!res.ok) {
+    throw new Error(`Failed to load Pokemon sets: ${res.status} ${res.statusText}`);
+  }
+
+  const json = (await res.json()) as SetsApiResponse;
+  const sets = Array.isArray(json.data) ? json.data : [];
 
   return (
-    <main className="ms-container" style={{ paddingTop: 24, paddingBottom: 40 }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 16 }}>Pokémon Sets</h1>
-
-      {sets.length === 0 ? (
-        <p style={{ opacity: 0.8 }}>No sets found.</p>
-      ) : (
-        <div style={{ display: "grid", gap: 12 }}>
-          {sets.map((s) => (
-            <a
-              key={s.id}
-              href={`/pokemon/sets/${s.id}`}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: 14,
-                borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.12)",
-                textDecoration: "none",
-                color: "inherit",
-              }}
-            >
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <div style={{ fontSize: 16, fontWeight: 650 }}>{s.name}</div>
-                <div style={{ fontSize: 13, opacity: 0.75 }}>
-                  {s.series} • {s.releaseDate}
-                </div>
-              </div>
-
-              <div style={{ fontSize: 13, opacity: 0.85 }}>
-                {s.total ? `${s.total} cards` : ""}
-              </div>
-            </a>
-          ))}
+    <div className="ms-container" style={{ paddingTop: 18, paddingBottom: 32 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>Pokémon Sets</h1>
+          <p style={{ marginTop: 8, marginBottom: 0, color: "var(--ms-muted)" }}>
+            Loaded from: <span className="ms-chip">{json.source ?? "unknown"}</span>{" "}
+            <span className="ms-chip">{sets.length} sets</span>
+          </p>
         </div>
-      )}
-    </main>
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        {sets.length === 0 ? (
+          <div className="ms-card" style={{ padding: 16 }}>
+            <div style={{ fontWeight: 700 }}>No sets found</div>
+            <div style={{ marginTop: 6, color: "var(--ms-muted)" }}>
+              Your DB/API returned an empty list.
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+            {sets.map((s) => (
+              <Link
+                key={s.id}
+                href={`/pokemon/sets/${encodeURIComponent(s.id)}`}
+                className="ms-card"
+                style={{ display: "block", padding: 14, textDecoration: "none" }}
+              >
+                <div style={{ fontWeight: 800 }}>{s.name}</div>
+                <div style={{ marginTop: 6, color: "var(--ms-muted)", fontSize: 13 }}>
+                  <div>Set ID: {s.id}</div>
+                  {s.series ? <div>Series: {s.series}</div> : null}
+                  {s.releaseDate ? <div>Release: {s.releaseDate}</div> : null}
+                  {typeof s.total === "number" ? <div>Total cards: {s.total}</div> : null}
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
+
