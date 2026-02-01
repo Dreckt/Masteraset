@@ -1,175 +1,123 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
-type ImportType = "sets" | "cards";
+type ImportJson = {
+  ok?: boolean;
+  error?: string;
+  upserts?: number;
+  detail?: string;
+};
+
+async function safeJson(res: Response): Promise<ImportJson> {
+  try {
+    const j = (await res.json()) as unknown;
+    if (j && typeof j === "object") return j as ImportJson;
+    return {};
+  } catch {
+    return {};
+  }
+}
 
 export default function AdminImportClient() {
-  const [importType, setImportType] = useState<ImportType>("cards");
+  const [adminToken, setAdminToken] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const endpoint = useMemo(() => {
-    return importType === "sets" ? "/api/admin/import/sets" : "/api/admin/import/cards";
-  }, [importType]);
+  async function runImport(kind: "sets" | "cards" | "printings") {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/import/${kind}`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(adminToken ? { "x-admin-token": adminToken } : {}),
+        },
+        // Server route reads CSV from /imports/*.csv, so no body required.
+        body: JSON.stringify({}),
+      });
 
-  const formatHelp = useMemo(() => {
-    if (importType === "sets") {
-      return `Sets CSV (Required):
-game_slug,id,name
+      const j = await safeJson(res);
 
-Optional:
-code,release_date,total_cards,default_language
+      if (!res.ok) {
+        const msg = j.error || j.detail || String(res.status);
+        alert(`Import failed: ${msg}`);
+        return;
+      }
 
-Example:
-pokemon,base1,Base Set,base1,1999-01-09,102,en
-
-Note:
-game_slug must match games.slug (pokemon, weiss, mtg, lorcana, one-piece).`;
+      alert(`Import OK. Upserts: ${j.upserts ?? "?"}`);
+    } catch (err: any) {
+      alert(`Import failed: ${String(err?.message || err)}`);
+    } finally {
+      setBusy(false);
     }
-    return `Cards CSV (Required):
-game_slug,set_name,card_id,card_name
-
-Optional:
-rarity,year,image_source,image_filename
-
-Example:
-pokemon,Base Set,base1-004,Charizard,Rare,1999,,pokemon_base1_004.png
-
-Images:
-If image_filename is provided, the site path becomes:
-  /cards/<game_slug>/<image_filename>`;
-  }, [importType]);
+  }
 
   return (
-    <div className="ms-container">
-      <div className="ms-panel" style={{ padding: 22 }}>
-        <div className="ms-h2">
-          Admin <span className="ms-accent-pink">CSV Import</span>
-        </div>
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
+      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 10 }}>Admin Import</h1>
 
-        <div className="ms-muted" style={{ marginTop: 8, maxWidth: 860 }}>
-          Admin-only tools to import CSV into D1. This page is not linked anywhere. Import requires the admin token.
-        </div>
+      <p style={{ opacity: 0.85, marginTop: 0 }}>
+        Runs server-side CSV imports from the <code>/imports</code> folder.
+      </p>
 
-        <div className="ms-divider" style={{ marginTop: 16, marginBottom: 16 }} />
-
-        {/* Import type selector */}
-        <div className="ms-card" style={{ padding: 16, display: "grid", gap: 10 }}>
-          <div style={{ fontWeight: 800 }}>Import Type</div>
-
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className={`ms-btn ${importType === "cards" ? "ms-btn-pink" : "ms-btn-ghost"}`}
-              onClick={() => setImportType("cards")}
-            >
-              Cards CSV
-            </button>
-
-            <button
-              type="button"
-              className={`ms-btn ${importType === "sets" ? "ms-btn-pink" : "ms-btn-ghost"}`}
-              onClick={() => setImportType("sets")}
-            >
-              Sets CSV
-            </button>
-          </div>
-
-          <div className="ms-muted" style={{ fontSize: 13 }}>
-            Posting to: <span style={{ color: "var(--ms-text)" }}>{endpoint}</span>
-          </div>
-        </div>
-
-        <div style={{ height: 12 }} />
-
-        {/* Format instructions */}
-        <div className="ms-card" style={{ padding: 16 }}>
-          <div style={{ fontWeight: 800, marginBottom: 8 }}>CSV Format</div>
-          <div className="ms-muted" style={{ whiteSpace: "pre-wrap" }}>
-            {formatHelp}
-          </div>
-        </div>
-
-        <div style={{ height: 12 }} />
-
-        {/* Upload form */}
-        <div className="ms-card" style={{ padding: 16 }}>
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-
-              const form = e.currentTarget as HTMLFormElement;
-              const tokenInput = form.querySelector<HTMLInputElement>('input[name="token"]');
-              const fileInput = form.querySelector<HTMLInputElement>('input[name="file"]');
-
-              const token = tokenInput?.value?.trim() || "";
-              const file = fileInput?.files?.[0];
-
-              if (!token) return alert("Enter admin token");
-              if (!file) return alert("Choose a CSV file");
-
-              const text = await file.text();
-
-              const res = await fetch(endpoint, {
-                method: "POST",
-                headers: {
-                  "content-type": "text/csv",
-                  "x-admin-token": token,
-                },
-                body: text,
-              });
-
-              const j = await res.json().catch(() => ({}));
-
-              if (!res.ok) return alert(`Import failed: ${j?.error || res.status}`);
-
-              alert(`Import OK. Upserts: ${j?.upserts ?? "?"}`);
-            }}
-          >
-            <div style={{ display: "grid", gap: 10, maxWidth: 520 }}>
-              <label className="ms-muted">Admin Token</label>
-              <input
-                name="token"
-                type="password"
-                placeholder="Paste admin token here"
-                style={{
-                  width: "100%",
-                  padding: "12px 12px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(255,255,255,0.14)",
-                  background: "rgba(0,0,0,0.25)",
-                  color: "var(--ms-text)",
-                }}
-              />
-
-              <label className="ms-muted" style={{ marginTop: 8 }}>
-                CSV File
-              </label>
-              <input
-                name="file"
-                type="file"
-                accept=".csv,text/csv"
-                style={{
-                  width: "100%",
-                  padding: "10px 0px",
-                  color: "var(--ms-muted)",
-                }}
-              />
-
-              <button className="ms-btn ms-btn-pink" type="submit" style={{ marginTop: 10 }}>
-                Import Selected CSV
-              </button>
-
-              <div className="ms-muted" style={{ fontSize: 13 }}>
-                Tip: your templates live in <code>imports/sets.csv</code> and <code>imports/cards.csv</code>
-              </div>
-            </div>
-          </form>
-        </div>
-
-        <div className="ms-muted" style={{ marginTop: 14, fontSize: 13 }}>
-          Security: not linked anywhere + requires token.
-        </div>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 14 }}>
+        <label style={{ fontWeight: 600 }}>Admin token</label>
+        <input
+          value={adminToken}
+          onChange={(e) => setAdminToken(e.target.value)}
+          placeholder="x-admin-token"
+          style={{
+            flex: 1,
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,0.18)",
+            background: "rgba(0,0,0,0.25)",
+          }}
+        />
       </div>
+
+      <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
+        <button
+          onClick={() => runImport("sets")}
+          disabled={busy}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,0.18)",
+            cursor: busy ? "not-allowed" : "pointer",
+          }}
+        >
+          Import Sets
+        </button>
+
+        <button
+          onClick={() => runImport("cards")}
+          disabled={busy}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,0.18)",
+            cursor: busy ? "not-allowed" : "pointer",
+          }}
+        >
+          Import Cards
+        </button>
+
+        <button
+          onClick={() => runImport("printings")}
+          disabled={busy}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,0.18)",
+            cursor: busy ? "not-allowed" : "pointer",
+          }}
+        >
+          Import Printings
+        </button>
+      </div>
+
+      {busy ? <p style={{ marginTop: 14, opacity: 0.85 }}>Running import…</p> : null}
     </div>
   );
 }
