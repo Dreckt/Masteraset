@@ -1,3 +1,5 @@
+import { headers } from "next/headers";
+
 export const runtime = "edge";
 
 interface PokemonSetRow {
@@ -11,19 +13,23 @@ interface PokemonSetRow {
   images_logo: string | null;
 }
 
-function getBaseUrl(): string {
-  // Prefer explicit env var if set, otherwise hard-fallback to prod domain
-  const envUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  if (envUrl && envUrl.startsWith("http")) return envUrl;
+function getBaseUrlFromHeaders(): string {
+  const h = headers();
 
-  const pagesUrl = process.env.CF_PAGES_URL; // sometimes exists without scheme
-  if (pagesUrl) return pagesUrl.startsWith("http") ? pagesUrl : `https://${pagesUrl}`;
+  const host =
+    h.get("x-forwarded-host") ||
+    h.get("host") ||
+    "masteraset.com";
 
-  return "https://masteraset.com";
+  const proto =
+    h.get("x-forwarded-proto") ||
+    "https";
+
+  return `${proto}://${host}`;
 }
 
 async function getSets(): Promise<PokemonSetRow[]> {
-  const baseUrl = getBaseUrl();
+  const baseUrl = getBaseUrlFromHeaders();
 
   const res = await fetch(`${baseUrl}/api/pokemon/sets`, {
     cache: "no-store",
