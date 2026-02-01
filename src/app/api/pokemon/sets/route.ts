@@ -1,100 +1,191 @@
-// src/app/api/pokemon/sets/route.ts
+import { getRequestContext } from "@cloudflare/next-on-pages";
+
 export const runtime = "edge";
 
-type PtcgSet = {
+type PokemonTcgSet = {
   id: string;
   name: string;
   series?: string;
   releaseDate?: string;
   printedTotal?: number;
   total?: number;
-  images?: {
-    symbol?: string;
-    logo?: string;
-  };
+  images?: { symbol?: string; logo?: string };
   updatedAt?: string;
 };
 
-type UpstreamResponse = {
-  data: PtcgSet[];
-};
-
-function json(data: unknown, status = 200, headers?: Record<string, string>) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      // default: don’t let CF cache error responses
-      ...headers,
-    },
-  });
+function jsonResponse(body: unknown, init?: ResponseInit) {
+  const headers = new Headers(init?.headers);
+  headers.set("content-type", "application/json; charset=utf-8");
+  headers.set("cache-control", "no-store");
+  return new Response(JSON.stringify(body), { ...init, headers });
 }
 
-function getApiKey() {
-  // Prefer server-side secret, fall back to public if that's what you used earlier
-  return (
-    (process.env.POKEMONTCG_API_KEY || "").trim() ||
-    (process.env.NEXT_PUBLIC_POKEMONTCG_API_KEY || "").trim()
-  );
-}
+export async function GET(req: Request) {
+  const { env } = getRequestContext();
+  const db = env.DB as D1Database;
 
-export async function GET() {
-  const apiKey = getApiKey();
+  const url = new URL(req.url);
+  const force = url.searchParams.get("force") === "1";
 
-  const upstream = "https://api.pokemontcg.io/v2/sets?page=1&pageSize=250";
+  // 1) Try DB first (fast + reliable)
+  if (!force) {
+    const r = await db
+      .prepare(
+        `
+        SELECT
+          id,
+          name,
+          series,
+          releaseDate,
+          printedTotal,
+          total,
+          images_symbol,
+          images_logo,
+          updatedAt
+        FROM pokemon_sets
+        ORDER BY
+          CASE WHEN releaseDate IS NULL OR releaseDate = '' THEN 1 ELSE 0 END,
+          releaseDate DESC,
+          name ASC
+      `
+      )
+      .all();
 
-  try {
-    // IMPORTANT: Cloudflare Workers fetch does NOT support RequestInit.cache
-    const res = await fetch(upstream, {
-      headers: {
-        Accept: "application/json",
-        ...(apiKey ? { "X-Api-Key": apiKey } : {}),
-      },
-    });
-
-    // If upstream is unhappy, return a useful error payload
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      return json(
-        {
-          error: `Upstream error ${res.status}`,
-          upstream,
-          hint:
-            "If this is 504/520 from Cloudflare, the upstream API may be rate-limiting or having regional issues.",
-          body: text ? text.slice(0, 1000) : "",
+    const rows = (r.results ?? []) as any[];
+    if (rows.length > 0) {
+      const data = rows.map((x) => ({
+        id: x.id,
+        name: x.name,
+        series: x.series ?? null,
+        releaseDate: x.releaseDate ?? null,
+        printedTotal: x.printedTotal ?? null,
+        total: x.total ?? null,
+        images: {
+          symbol: x.images_symbol ?? null,
+          logo: x.images_logo ?? null,
         },
-        res.status,
-        { "cache-control": "no-store" }
-      );
+        updatedAt: x.updatedAt ?? null,
+      }));
+
+      return jsonResponse({ source: "db", count: data.length, data }, { status: 200 });
     }
+  }
 
-    const payload = (await res.json()) as UpstreamResponse;
+  // 2) DB empty or force=1 -> fetch upstream and cache into D1
+  const upstreamUrl = new URL("https://api.pokemontcg.io/v2/sets");
+  upstreamUrl.searchParams.set("page", "1");
+  upstreamUrl.searchParams.set("pageSize", "250");
 
-    // Normalize what the UI expects, if needed
-    const data = (payload?.data ?? []).map((s) => ({
-      id: s.id,
-      name: s.name,
-      series: s.series ?? null,
-      releaseDate: s.releaseDate ?? null,
-      printedTotal: s.printedTotal ?? null,
-      total: s.total ?? null,
-      images_symbol: s.images?.symbol ?? null,
-      images_logo: s.images?.logo ?? null,
-      updatedAt: s.updatedAt ?? null,
-    }));
+  const headers: Record<string, string> = {
+    accept: "application/json",
+    "user-agent": "masteraset.com (+https://masteraset.com)",
+  };
 
-    // We can allow short edge caching if you want. For now: no-store to keep it simple.
-    return json({ data }, 200, { "cache-control": "no-store" });
-  } catch (err: unknown) {
-    const message =
-      err instanceof Error ? err.message : "Unknown fetch error";
-    return json(
+  // Optional (recommended): set this in Cloudflare Pages env
+  if (env.POKEMONTCG_API_KEY) {
+    headers["X-Api-Key"] = env.POKEMONTCG_API_KEY;
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(upstreamUrl.toString(), { headers });
+  } catch (e) {
+    return jsonResponse(
       {
-        error: message,
-        upstream,
+        error: "Upstream fetch failed",
+        upstream: upstreamUrl.toString(),
+        detail: String(e),
+        hint: "If the upstream API is having regional issues, try again later or use DB-cached results.",
       },
-      500,
-      { "cache-control": "no-store" }
+      { status: 502 }
     );
   }
+
+  const raw = await res.text();
+
+  if (!res.ok) {
+    return jsonResponse(
+      {
+        error: `Upstream error ${res.status}`,
+        upstream: upstreamUrl.toString(),
+        hint: "If upstream is returning 404/504/520 from Cloudflare, it may be having regional/WAF/rate-limit issues.",
+        body: raw ? raw.slice(0, 2000) : "",
+      },
+      { status: res.status }
+    );
+  }
+
+  let payload: any;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    return jsonResponse(
+      {
+        error: "Upstream returned non-JSON response",
+        upstream: upstreamUrl.toString(),
+        body: raw.slice(0, 2000),
+      },
+      { status: 502 }
+    );
+  }
+
+  const sets = (payload?.data ?? []) as PokemonTcgSet[];
+  if (!Array.isArray(sets) || sets.length === 0) {
+    return jsonResponse(
+      { error: "Upstream returned no set data", upstream: upstreamUrl.toString(), payload },
+      { status: 502 }
+    );
+  }
+
+  // Upsert into D1 so future calls don't depend on upstream
+  const stmts = sets.map((s) =>
+    db
+      .prepare(
+        `
+        INSERT INTO pokemon_sets (
+          id, name, series, releaseDate, printedTotal, total, images_symbol, images_logo, updatedAt
+        ) VALUES (
+          ?, ?, ?, ?, ?, ?, ?, ?, ?
+        )
+        ON CONFLICT(id) DO UPDATE SET
+          name=excluded.name,
+          series=excluded.series,
+          releaseDate=excluded.releaseDate,
+          printedTotal=excluded.printedTotal,
+          total=excluded.total,
+          images_symbol=excluded.images_symbol,
+          images_logo=excluded.images_logo,
+          updatedAt=excluded.updatedAt
+      `
+      )
+      .bind(
+        s.id,
+        s.name,
+        s.series ?? null,
+        s.releaseDate ?? null,
+        s.printedTotal ?? null,
+        s.total ?? null,
+        s.images?.symbol ?? null,
+        s.images?.logo ?? null,
+        s.updatedAt ?? null
+      )
+  );
+
+  try {
+    await db.batch(stmts);
+  } catch (e) {
+    // Even if caching fails, still return the upstream data so the UI works
+    return jsonResponse(
+      {
+        source: "upstream",
+        count: sets.length,
+        data: sets,
+        warning: "Fetched from upstream but failed to cache into D1",
+        cacheError: String(e),
+      },
+      { status: 200 }
+    );
+  }
+
+  return jsonResponse({ source: "upstream", count: sets.length, data: sets }, { status: 200 });
 }
