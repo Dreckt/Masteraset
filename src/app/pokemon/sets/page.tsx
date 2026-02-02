@@ -1,93 +1,111 @@
 // src/app/pokemon/sets/page.tsx
 import Link from "next/link";
-import { headers } from "next/headers";
 
 export const runtime = "edge";
-export const dynamic = "force-dynamic";
 
-type PokemonSetRow = {
+type SetRow = {
   id: string;
-  name: string;
-  series?: string | null;
-  releaseDate?: string | null;
-  total?: number | null;
-  printedTotal?: number | null;
-  images?: {
-    symbol?: string | null;
-    logo?: string | null;
-  } | null;
-};
-
-type SetsApiResponse = {
-  data?: PokemonSetRow[];
-  count?: number;
-  source?: string;
-  error?: string;
+  name: string | null;
+  series: string | null;
+  total: number | null;
+  printedTotal: number | null;
+  releaseDate: string | null;
+  images?: any;
 };
 
 function getOriginFromHeaders(): string {
-  const h = headers();
-  const proto = h.get("x-forwarded-proto") ?? "https";
-  const host = h.get("host") ?? "masteraset.com";
-  return `${proto}://${host}`;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { headers } = require("next/headers") as typeof import("next/headers");
+    const h = headers();
+    const proto = h.get("x-forwarded-proto") || "https";
+    const host = h.get("x-forwarded-host") || h.get("host");
+    if (!host) return "";
+    return `${proto}://${host}`;
+  } catch {
+    return "";
+  }
+}
+
+async function fetchSets(): Promise<SetRow[]> {
+  const origin = getOriginFromHeaders();
+
+  const url = origin
+    ? `${origin}/api/pokemon/sets`
+    : `https://masteraset.com/api/pokemon/sets`;
+
+  const res = await fetch(url, {
+    headers: { Accept: "application/json" },
+    // IMPORTANT: Do NOT pass fetch({ cache: ... }) on Cloudflare Workers (not implemented)
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status} ${res.statusText}${text ? `: ${text.slice(0, 200)}` : ""}`);
+  }
+
+  const json = (await res.json().catch(() => null)) as any;
+  // expecting { data: [...] }
+  return (json?.data || []) as SetRow[];
 }
 
 export default async function PokemonSetsPage() {
-  const origin = getOriginFromHeaders();
+  let sets: SetRow[] = [];
+  let error: string | null = null;
 
-  // IMPORTANT: Do NOT pass { cache: "no-store" } here.
-  // Cloudflare Pages/Workers throws: "RequestInitializerDict.cache is not implemented"
-  const res = await fetch(`${origin}/api/pokemon/sets`);
-
-  if (!res.ok) {
-    throw new Error(`Failed to load Pokemon sets: ${res.status} ${res.statusText}`);
+  try {
+    sets = await fetchSets();
+  } catch (e: any) {
+    error = e?.message || String(e);
   }
 
-  const json = (await res.json()) as SetsApiResponse;
-  const sets = Array.isArray(json.data) ? json.data : [];
-
   return (
-    <div className="ms-container" style={{ paddingTop: 18, paddingBottom: 32 }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>Pokémon Sets</h1>
-          <p style={{ marginTop: 8, marginBottom: 0, color: "var(--ms-muted)" }}>
-            Loaded from: <span className="ms-chip">{json.source ?? "unknown"}</span>{" "}
-            <span className="ms-chip">{sets.length} sets</span>
-          </p>
-        </div>
+    <main style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
+      <div style={{ marginBottom: 16 }}>
+        <Link href="/" style={{ textDecoration: "underline" }}>
+          ← Home
+        </Link>
       </div>
 
-      <div style={{ marginTop: 16 }}>
-        {sets.length === 0 ? (
-          <div className="ms-card" style={{ padding: 16 }}>
-            <div style={{ fontWeight: 700 }}>No sets found</div>
-            <div style={{ marginTop: 6, color: "var(--ms-muted)" }}>
-              Your DB/API returned an empty list.
+      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>
+        Pokémon Sets
+      </h1>
+
+      {error ? (
+        <div
+          style={{
+            border: "1px solid rgba(255,255,255,0.15)",
+            borderRadius: 12,
+            padding: 14,
+            whiteSpace: "pre-wrap",
+          }}
+        >
+          Error loading sets: {error}
+        </div>
+      ) : null}
+
+      <div style={{ display: "grid", gap: 10 }}>
+        {sets.map((s) => (
+          <Link
+            key={s.id}
+            href={`/pokemon/sets/${encodeURIComponent(s.id)}`}
+            style={{
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 12,
+              padding: 14,
+              textDecoration: "none",
+              display: "block",
+            }}
+          >
+            <div style={{ fontSize: 18, fontWeight: 700 }}>
+              {s.name || s.id}
             </div>
-          </div>
-        ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
-            {sets.map((s) => (
-              <Link
-                key={s.id}
-                href={`/pokemon/sets/${encodeURIComponent(s.id)}`}
-                className="ms-card"
-                style={{ display: "block", padding: 14, textDecoration: "none" }}
-              >
-                <div style={{ fontWeight: 800 }}>{s.name}</div>
-                <div style={{ marginTop: 6, color: "var(--ms-muted)", fontSize: 13 }}>
-                  <div>Set ID: {s.id}</div>
-                  {s.series ? <div>Series: {s.series}</div> : null}
-                  {s.releaseDate ? <div>Release: {s.releaseDate}</div> : null}
-                  {typeof s.total === "number" ? <div>Total cards: {s.total}</div> : null}
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
+            <div style={{ opacity: 0.8, marginTop: 4 }}>
+              {s.series || "—"} • {s.total ?? "—"} cards • {s.releaseDate || "—"}
+            </div>
+          </Link>
+        ))}
       </div>
-    </div>
+    </main>
   );
 }
-
