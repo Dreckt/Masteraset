@@ -2,91 +2,83 @@ import { getRequestContext } from "@cloudflare/next-on-pages";
 
 export const runtime = "edge";
 
-type PokemonTcgSetRow = {
-  id: string;
-  name: string;
-  series: string | null;
-  releaseDate: string | null;
-  printedTotal: number | null;
-  total: number | null;
-  images_symbol: string | null;
-  images_logo: string | null;
-  updatedAt: string | null;
-};
-
-function jsonResponse(body: unknown, init?: ResponseInit) {
-  const headers = new Headers(init?.headers);
-  headers.set("content-type", "application/json; charset=utf-8");
-  headers.set("cache-control", "no-store");
-  return new Response(JSON.stringify(body), { ...init, headers });
+function json(data: any, init?: ResponseInit) {
+  return new Response(JSON.stringify(data, null, 2), {
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    },
+    ...init,
+  });
 }
 
-/**
- * DB-ONLY endpoint.
- * We deliberately do NOT call pokemontcg.io anymore.
- *
- * To populate data:
- * - Use your admin/CSV import flow to insert into `pokemon_sets`.
- */
-export async function GET(req: Request) {
-  const { env } = getRequestContext();
-  const db = env.DB as D1Database;
+function extractSetId(canonicalName: string) {
+  // pokemon-base1-1-alakazam => base1
+  const parts = (canonicalName ?? "").split("-");
+  return parts.length >= 2 ? parts[1] : null;
+}
 
-  // Optional: /api/pokemon/sets?limit=250
-  const url = new URL(req.url);
-  const limitRaw = url.searchParams.get("limit");
-  const limit =
-    limitRaw && /^\d+$/.test(limitRaw) ? Math.min(parseInt(limitRaw, 10), 1000) : 1000;
+export async function GET() {
+  const { env } = getRequestContext<any>();
+  const DB: D1Database | undefined = env?.DB;
 
-  try {
-    const r = await db
-      .prepare(
-        `
-        SELECT
-          id,
-          name,
-          series,
-          releaseDate,
-          printedTotal,
-          total,
-          images_symbol,
-          images_logo,
-          updatedAt
-        FROM pokemon_sets
-        ORDER BY
-          CASE WHEN releaseDate IS NULL OR releaseDate = '' THEN 1 ELSE 0 END,
-          releaseDate DESC,
-          name ASC
-        LIMIT ?
-      `
-      )
-      .bind(limit)
-      .all();
+  if (!DB) return json({ error: "DB binding not available" }, { status: 500 });
 
-    const rows = (r.results ?? []) as PokemonTcgSetRow[];
+  const gameRow = await DB.prepare(`SELECT id FROM games WHERE slug = ? LIMIT 1;`)
+    .bind("pokemon")
+    .first<{ id: string }>();
 
-    const data = rows.map((x) => ({
-      id: x.id,
-      name: x.name,
-      series: x.series ?? null,
-      releaseDate: x.releaseDate ?? null,
-      printedTotal: x.printedTotal ?? null,
-      total: x.total ?? null,
-      images: {
-        symbol: x.images_symbol ?? null,
-        logo: x.images_logo ?? null,
-      },
-      updatedAt: x.updatedAt ?? null,
-    }));
-
-    return jsonResponse({ source: "db", count: data.length, data }, { status: 200 });
-  } catch (err: any) {
-    return jsonResponse(
-      {
-        error: "DB query failed",
-        message: err?.message ?? String(err),
-      },
-      { status: 500 }
-    );
+  if (!gameRow?.id) {
+    return json({ error: "Pokemon game row not found (games.slug='pokemon')" }, { status: 500 });
   }
+
+  // Pull canonical_name and derive setIds. (D1/SQLite doesn't have a nice split func.)
+  const res = await DB.prepare(
+    `SELECT canonical_name, set_name, year
+     FROM cards
+     WHERE game_id = ? AND canonical_name LIKE 'pokemon-%'
+     LIMIT 5000;`
+  )
+    .bind(gameRow.id)
+    .all<any>();
+
+  const rows: any[] = (res as any)?.results ?? [];
+
+  const bySet = new Map<
+    string,
+    { id: string; name: string; total: number; year: number | null }
+  >();
+
+  for (const r of rows) {
+    const setId = extractSetId(r.canonical_name);
+    if (!setId) continue;
+
+    const prev = bySet.get(setId);
+    if (!prev) {
+      bySet.set(setId, {
+        id: setId,
+        name: (r.set_name ?? setId).toString(),
+        total: 1,
+        year: r.year != null ? Number(r.year) : null,
+      });
+    } else {
+      prev.total += 1;
+      if (prev.year == null && r.year != null) prev.year = Number(r.year);
+    }
+  }
+
+  const data = Array.from(bySet.values()).sort((a, b) => a.id.localeCompare(b.id));
+
+  // Shape similar to PokemonTCG sets endpoint
+  return json({
+    data: data.map((s) => ({
+      id: s.id,
+      name: s.name,
+      series: "Pokémon",
+      total: s.total,
+      printedTotal: s.total,
+      releaseDate: s.year ? `${s.year}-01-01` : null,
+      images: null,
+    })),
+  });
 }

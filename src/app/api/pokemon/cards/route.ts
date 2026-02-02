@@ -1,113 +1,92 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getRequestContext } from "@cloudflare/next-on-pages";
 
 export const runtime = "edge";
-export const dynamic = "force-dynamic";
 
-type PokemonCardRow = {
-  id: string;
-  setId: string;
-  name?: string | null;
-  number?: string | null;
-  rarity?: string | null;
-  images?: string | null; // JSON string for now
-  raw?: string | null;    // JSON string for now
-  updatedAt?: string | null;
-};
-
-function intParam(v: string | null, fallback: number) {
-  const n = Number(v);
-  return Number.isFinite(n) ? Math.trunc(n) : fallback;
+function json(data: any, init?: ResponseInit) {
+  return new Response(JSON.stringify(data, null, 2), {
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    },
+    ...init,
+  });
 }
 
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
+function parseSetIdFromCanonicalName(canonicalName: string) {
+  // canonical_name pattern we used: pokemon-base1-1-alakazam
+  // setId is the second segment: base1
+  const parts = (canonicalName ?? "").split("-");
+  return parts.length >= 2 ? parts[1] : null;
 }
 
-export async function GET(req: NextRequest) {
+function parseNumberFromCanonicalName(canonicalName: string) {
+  // pokemon-base1-1-alakazam => "1"
+  const parts = (canonicalName ?? "").split("-");
+  return parts.length >= 3 ? parts[2] : null;
+}
+
+export async function GET(req: Request) {
+  const { env } = getRequestContext<any>();
+  const DB: D1Database | undefined = env?.DB;
+
+  if (!DB) return json({ error: "DB binding not available" }, { status: 500 });
+
   const url = new URL(req.url);
-  const setId = (url.searchParams.get("setId") || "").trim();
+  const setId = (url.searchParams.get("setId") ?? "").trim(); // e.g. base1
 
   if (!setId) {
-    return NextResponse.json(
-      { error: "Missing required query param: setId" },
-      { status: 400 }
-    );
+    return json({ error: "Missing setId query param (e.g. ?setId=base1)" }, { status: 400 });
   }
 
-  const pageSize = clamp(intParam(url.searchParams.get("pageSize"), 50), 1, 100);
-  const page = clamp(intParam(url.searchParams.get("page"), 1), 1, 100000);
-  const offset = (page - 1) * pageSize;
+  // Find pokemon game UUID from games table
+  const gameRow = await DB.prepare(`SELECT id FROM games WHERE slug = ? LIMIT 1;`)
+    .bind("pokemon")
+    .first<{ id: string }>();
 
-  // D1 binding (keep both names to be resilient if we rename later)
-  const { env } = getRequestContext();
-  const db: D1Database | undefined = (env as any).DB || (env as any).MASTERASET_DB;
-
-  if (!db) {
-    // No D1 binding at runtime — return stub (NOT a 500)
-    return NextResponse.json(
-      {
-        source: "stub",
-        count: 0,
-        data: [],
-        warning:
-          "D1 binding not found (expected env.DB). Endpoint is keyless and safe.",
-      },
-      { status: 200, headers: { "Cache-Control": "no-store" } }
-    );
+  if (!gameRow?.id) {
+    return json({ error: "Pokemon game row not found (games.slug='pokemon')" }, { status: 500 });
   }
 
-  try {
-    // IMPORTANT: Only select columns that exist in pokemon_cards.
-    // (Your current error was from referencing a non-existent column like `setName`.)
-    const sql = `
-      SELECT
-        id,
-        setId,
-        name,
-        number,
-        rarity,
-        images,
-        raw,
-        updatedAt
-      FROM pokemon_cards
-      WHERE setId = ?
-      ORDER BY
-        CASE
-          WHEN number GLOB '*[^0-9]*' THEN 1
-          ELSE 0
-        END,
-        CAST(number AS INTEGER),
-        number,
-        id
-      LIMIT ? OFFSET ?;
-    `;
+  // Pull cards that match this set by canonical_name pattern
+  // canonical_name starts with: pokemon-{setId}-
+  const like = `pokemon-${setId}-%`;
 
-    const r = await db.prepare(sql).bind(setId, pageSize, offset).all<PokemonCardRow>();
-    const rows = (r.results || []) as PokemonCardRow[];
+  const res = await DB.prepare(
+    `SELECT canonical_name, card_id, card_name, rarity, set_name, year
+     FROM cards
+     WHERE game_id = ? AND canonical_name LIKE ?
+     ORDER BY
+       CAST(
+         CASE
+           WHEN INSTR(canonical_name, 'pokemon-') = 1 THEN
+             SUBSTR(canonical_name, LENGTH('pokemon-') + LENGTH(?) + 2, 10)
+           ELSE '999999'
+         END
+       AS INTEGER
+     ) ASC,
+     canonical_name ASC;`
+  )
+    // note: we pass setId into the ORDER BY extraction to keep stable numeric ordering
+    .bind(gameRow.id, like, setId)
+    .all<any>();
 
-    return NextResponse.json(
-      {
-        source: "db",
-        count: rows.length,
-        data: rows,
-        page,
-        pageSize,
-      },
-      { status: 200, headers: { "Cache-Control": "no-store" } }
-    );
-  } catch (e: any) {
-    // Keep endpoint keyless/safe; return stub on DB errors
-    return NextResponse.json(
-      {
-        source: "stub",
-        count: 0,
-        data: [],
-        warning:
-          "Cards table/query not available yet (pokemon_cards). Endpoint is keyless and safe.",
-        detail: `D1_ERROR: ${e?.message || String(e)}`,
-      },
-      { status: 200, headers: { "Cache-Control": "no-store" } }
-    );
-  }
+  const rows: any[] = (res as any)?.results ?? [];
+
+  // Return in a shape your UI expects (PokemonTCG-like)
+  const data = rows.map((r) => {
+    const id = r.canonical_name; // stable unique id for internal use
+    const name = r.card_name || r.canonical_name;
+    const number = parseNumberFromCanonicalName(r.canonical_name);
+
+    return {
+      id,
+      name,
+      number: number ?? null,
+      rarity: r.rarity ?? null,
+      // you can add images later if/when you store them
+      images: null,
+    };
+  });
+
+  return json({ data seeed: "d1", count: data.length, data });
 }
