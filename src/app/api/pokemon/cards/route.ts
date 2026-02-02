@@ -12,14 +12,14 @@ function json(data: any, init?: ResponseInit) {
   });
 }
 
-function parseSetIdFromCanonicalName(canonicalName: string) {
-  // canonical_name pattern we used: pokemon-base1-1-alakazam
+function extractSetIdFromCanonicalName(canonicalName: string) {
+  // canonical_name pattern: pokemon-base1-1-alakazam
   // setId is the second segment: base1
   const parts = (canonicalName ?? "").split("-");
   return parts.length >= 2 ? parts[1] : null;
 }
 
-function parseNumberFromCanonicalName(canonicalName: string) {
+function extractNumberFromCanonicalName(canonicalName: string) {
   // pokemon-base1-1-alakazam => "1"
   const parts = (canonicalName ?? "").split("-");
   return parts.length >= 3 ? parts[2] : null;
@@ -48,7 +48,6 @@ export async function GET(req: Request) {
   }
 
   // Pull cards that match this set by canonical_name pattern
-  // canonical_name starts with: pokemon-{setId}-
   const like = `pokemon-${setId}-%`;
 
   const res = await DB.prepare(
@@ -56,37 +55,36 @@ export async function GET(req: Request) {
      FROM cards
      WHERE game_id = ? AND canonical_name LIKE ?
      ORDER BY
-       CAST(
-         CASE
-           WHEN INSTR(canonical_name, 'pokemon-') = 1 THEN
-             SUBSTR(canonical_name, LENGTH('pokemon-') + LENGTH(?) + 2, 10)
-           ELSE '999999'
-         END
-       AS INTEGER
-     ) ASC,
-     canonical_name ASC;`
+       CAST(? AS INTEGER) ASC, canonical_name ASC;`
   )
-    // note: we pass setId into the ORDER BY extraction to keep stable numeric ordering
-    .bind(gameRow.id, like, setId)
+    // NOTE: we don't have a reliable SQL split func here; ordering will be improved later.
+    .bind(gameRow.id, like, 0)
     .all<any>();
 
   const rows: any[] = (res as any)?.results ?? [];
 
-  // Return in a shape your UI expects (PokemonTCG-like)
+  // Shape similar to PokemonTCG API cards response
   const data = rows.map((r) => {
     const id = r.canonical_name; // stable unique id for internal use
-    const name = r.card_name || r.canonical_name;
-    const number = parseNumberFromCanonicalName(r.canonical_name);
+    const number = extractNumberFromCanonicalName(r.canonical_name);
 
     return {
       id,
-      name,
+      name: r.card_name || r.canonical_name,
       number: number ?? null,
       rarity: r.rarity ?? null,
-      // you can add images later if/when you store them
+      set: {
+        id: extractSetIdFromCanonicalName(r.canonical_name) ?? setId,
+        name: r.set_name ?? null,
+      },
       images: null,
     };
   });
 
-  return json({ data seeed: "d1", count: data.length, data });
+  return json({
+    source: "d1",
+    setId,
+    count: data.length,
+    data,
+  });
 }
