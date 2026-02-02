@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 
 export const runtime = "edge";
 
@@ -22,6 +23,7 @@ type PokemonTCGCard = {
 
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url, {
+    // ✅ Cloudflare-safe: do NOT pass fetch({ cache: ... })
     headers: { "Cache-Control": "no-store" },
   });
 
@@ -31,6 +33,14 @@ async function fetchJson<T>(url: string): Promise<T> {
   }
 
   return (await res.json()) as T;
+}
+
+function getOriginFromHeaders() {
+  const h = headers();
+  const host = h.get("x-forwarded-host") || h.get("host") || "";
+  const proto = h.get("x-forwarded-proto") || "https";
+  if (!host) return "";
+  return `${proto}://${host}`;
 }
 
 export default async function PokemonSetPage({
@@ -43,18 +53,16 @@ export default async function PokemonSetPage({
   if (!setId) {
     return (
       <main style={{ padding: 16 }}>
-        <h1>Set not found</h1>
-        <Link href="/pokemon/sets">Back to sets</Link>
+        <h1 style={{ fontSize: 20, fontWeight: 700 }}>Set not found</h1>
+        <p>Missing set id.</p>
+        <p>
+          <Link href="/pokemon/sets">Back to sets</Link>
+        </p>
       </main>
     );
   }
 
-  // Build absolute origin for Edge
-  const origin =
-    (typeof headers === "function" && (await import("next/headers")).headers().get("x-forwarded-host"))
-      ? `https://${(await import("next/headers")).headers().get("x-forwarded-host")}`
-      : "";
-
+  const origin = getOriginFromHeaders();
   const setUrl = `${origin}/api/pokemon/sets/${encodeURIComponent(setId)}`;
   const cardsUrl = `${origin}/api/pokemon/cards?setId=${encodeURIComponent(setId)}`;
 
@@ -66,9 +74,11 @@ export default async function PokemonSetPage({
   } catch (e: any) {
     return (
       <main style={{ padding: 16 }}>
-        <h1>Error loading set</h1>
-        <p>{String(e?.message || e)}</p>
-        <Link href="/pokemon/sets">Back to sets</Link>
+        <h1 style={{ fontSize: 20, fontWeight: 700 }}>Error loading set</h1>
+        <p style={{ opacity: 0.85 }}>{String(e?.message || e)}</p>
+        <p>
+          <Link href="/pokemon/sets">Back to sets</Link>
+        </p>
       </main>
     );
   }
@@ -85,26 +95,58 @@ export default async function PokemonSetPage({
   if (!set) {
     return (
       <main style={{ padding: 16 }}>
-        <h1>Set not found</h1>
-        <Link href="/pokemon/sets">Back to sets</Link>
+        <h1 style={{ fontSize: 20, fontWeight: 700 }}>Set not found</h1>
+        <p>No set data returned for: {setId}</p>
+        <p>
+          <Link href="/pokemon/sets">Back to sets</Link>
+        </p>
       </main>
     );
   }
 
   return (
     <main style={{ padding: 16 }}>
-      <h1>{set.name}</h1>
-      <p>{set.total} cards</p>
+      <div style={{ marginBottom: 12 }}>
+        <Link href="/pokemon/sets">← Back to sets</Link>
+      </div>
 
-      <Link href="/pokemon/sets">← Back</Link>
+      <h1 style={{ fontSize: 22, fontWeight: 800, margin: "6px 0" }}>{set.name}</h1>
+      <div style={{ opacity: 0.8, marginBottom: 14 }}>
+        {typeof set.total === "number" ? `${set.total} cards` : null}
+        {set.releaseDate ? ` · ${set.releaseDate}` : null}
+      </div>
 
-      <ul>
-        {cards.map((c) => (
-          <li key={c.id}>
-            <Link href={`/pokemon/cards/${c.id}`}>{c.name}</Link> ({c.number})
-          </li>
-        ))}
-      </ul>
+      <h2 style={{ fontSize: 18, fontWeight: 700 }}>Cards</h2>
+
+      {cards.length === 0 ? (
+        <p style={{ opacity: 0.8 }}>No cards returned for this set yet.</p>
+      ) : (
+        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 }}>
+          {cards.map((c) => (
+            <li
+              key={c.id}
+              style={{
+                border: "1px solid rgba(255,255,255,0.12)",
+                borderRadius: 10,
+                padding: 10,
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 10,
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700 }}>
+                  <Link href={`/pokemon/cards/${encodeURIComponent(c.id)}`}>{c.name}</Link>
+                </div>
+                <div style={{ opacity: 0.8, fontSize: 13 }}>
+                  {c.number ? `#${c.number}` : null}
+                  {c.rarity ? ` · ${c.rarity}` : null}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </main>
   );
 }
