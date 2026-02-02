@@ -1,43 +1,37 @@
-import { headers } from "next/headers";
 import Link from "next/link";
+import { headers } from "next/headers";
 
 export const runtime = "edge";
 
-type PokemonCard = {
+type CardDetail = {
   id: string;
   name: string;
-  number?: string;
-  rarity?: string;
-  supertype?: string;
-  subtypes?: string[];
-  types?: string[];
-  hp?: string;
-  set?: {
-    id?: string;
-    name?: string;
-    series?: string;
-    releaseDate?: string;
-  };
-  images?: {
-    small?: string;
-    large?: string;
-  };
+  number?: string | null;
+  rarity?: string | null;
+  set?: { id?: string | null; name?: string | null } | null;
+  year?: number | null;
+  images?: { small?: string | null; large?: string | null } | null;
 };
 
-function getOriginFromHeaders(): string {
+function getOriginFromHeaders() {
   const h = headers();
+  const host = h.get("x-forwarded-host") || h.get("host") || "";
+  const proto = h.get("x-forwarded-proto") || "https";
+  if (!host) return "";
+  return `${proto}://${host}`;
+}
 
-  // Cloudflare + browsers
-  const xfProto = h.get("x-forwarded-proto");
-  const host = h.get("host");
+async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetch(url, {
+    headers: { "Cache-Control": "no-store" },
+  });
 
-  if (host) {
-    const proto = xfProto || "https";
-    return `${proto}://${host}`;
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Request failed ${res.status} for ${url}: ${text.slice(0, 200)}`);
   }
 
-  // Fallback (shouldn’t happen often)
-  return "https://masteraset.com";
+  return (await res.json()) as T;
 }
 
 export default async function PokemonCardPage({
@@ -45,133 +39,94 @@ export default async function PokemonCardPage({
 }: {
   params: { cardId: string };
 }) {
-  const cardId = params.cardId;
-  const origin = getOriginFromHeaders();
+  const cardId = params?.cardId;
 
-  // IMPORTANT: do NOT pass fetch({ cache: ... }) on Cloudflare Workers (not implemented)
-  const res = await fetch(
-    `${origin}/api/pokemon/cards/${encodeURIComponent(cardId)}`
-  );
-
-  if (!res.ok) {
-    throw new Error(
-      `Failed to fetch card ${cardId}. Status: ${res.status} ${res.statusText}`
+  if (!cardId) {
+    return (
+      <main style={{ padding: 16 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700 }}>Card not found</h1>
+        <p>Missing card id.</p>
+        <p>
+          <Link href="/pokemon/sets">Back to sets</Link>
+        </p>
+      </main>
     );
   }
 
-  const json = (await res.json()) as { data?: PokemonCard };
-  const card = json.data;
+  const origin = getOriginFromHeaders();
+  const url = `${origin}/api/pokemon/cards/${encodeURIComponent(cardId)}`;
 
-  if (!card) {
-    throw new Error(`No data returned for card: ${cardId}`);
+  let payload: { data?: CardDetail; error?: string } = {};
+  try {
+    payload = await fetchJson<{ data?: CardDetail; error?: string }>(url);
+  } catch (e: any) {
+    return (
+      <main style={{ padding: 16 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700 }}>Error loading card</h1>
+        <p style={{ opacity: 0.85 }}>{String(e?.message || e)}</p>
+        <p>
+          <Link href="/pokemon/sets">Back to sets</Link>
+        </p>
+      </main>
+    );
   }
 
+  const card = payload?.data;
+
+  if (!card) {
+    return (
+      <main style={{ padding: 16 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700 }}>Card not found</h1>
+        <p style={{ opacity: 0.85 }}>{payload?.error ?? "No card data returned."}</p>
+        <p>
+          <Link href="/pokemon/sets">Back to sets</Link>
+        </p>
+      </main>
+    );
+  }
+
+  const backHref =
+    card.set?.id ? `/pokemon/sets/${encodeURIComponent(card.set.id)}` : "/pokemon/sets";
+
   return (
-    <main className="ms-container" style={{ paddingTop: 18, paddingBottom: 40 }}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <Link href="/pokemon" className="ms-link">
-          Pokémon
-        </Link>
-        <span style={{ opacity: 0.5 }}>›</span>
-        <Link href="/pokemon/sets" className="ms-link">
-          Sets
-        </Link>
-        {card.set?.id ? (
-          <>
-            <span style={{ opacity: 0.5 }}>›</span>
-            <Link href={`/pokemon/sets/${card.set.id}`} className="ms-link">
-              {card.set?.name ?? card.set.id}
-            </Link>
-          </>
-        ) : null}
+    <main style={{ padding: 16 }}>
+      <div style={{ marginBottom: 12 }}>
+        <Link href={backHref}>← Back</Link>
       </div>
 
-      <div
-        style={{
-          marginTop: 16,
-          display: "grid",
-          gridTemplateColumns: "minmax(240px, 360px) 1fr",
-          gap: 18,
-          alignItems: "start",
-        }}
-      >
-        <div
-          className="ms-panel"
-          style={{
-            padding: 14,
-            border: "1px solid rgba(255,255,255,0.10)",
-            borderRadius: 14,
-            background: "rgba(255,255,255,0.03)",
-          }}
-        >
-          {card.images?.large || card.images?.small ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={card.images.large ?? card.images.small}
-              alt={card.name}
-              style={{
-                width: "100%",
-                height: "auto",
-                borderRadius: 10,
-                display: "block",
-              }}
-            />
-          ) : (
-            <div style={{ opacity: 0.7 }}>No image available.</div>
-          )}
-        </div>
-
-        <div
-          style={{
-            padding: 14,
-            border: "1px solid rgba(255,255,255,0.10)",
-            borderRadius: 14,
-            background: "rgba(255,255,255,0.03)",
-          }}
-        >
-          <h1 style={{ margin: 0, fontSize: 26, lineHeight: 1.15 }}>
-            {card.name}
-          </h1>
-
-          <div style={{ marginTop: 10, opacity: 0.85, display: "grid", gap: 6 }}>
-            <div>
-              <strong>ID:</strong> {card.id}
-            </div>
-
-            {card.set?.name ? (
-              <div>
-                <strong>Set:</strong> {card.set.name}
-                {card.number ? ` • #${card.number}` : ""}
-              </div>
-            ) : null}
-
-            {card.rarity ? (
-              <div>
-                <strong>Rarity:</strong> {card.rarity}
-              </div>
-            ) : null}
-
-            {card.supertype ? (
-              <div>
-                <strong>Type:</strong> {card.supertype}
-                {card.subtypes?.length ? ` (${card.subtypes.join(", ")})` : ""}
-              </div>
-            ) : null}
-
-            {card.types?.length ? (
-              <div>
-                <strong>Elements:</strong> {card.types.join(", ")}
-              </div>
-            ) : null}
-
-            {card.hp ? (
-              <div>
-                <strong>HP:</strong> {card.hp}
-              </div>
-            ) : null}
-          </div>
-        </div>
+      <h1 style={{ fontSize: 22, fontWeight: 800, margin: "6px 0" }}>{card.name}</h1>
+      <div style={{ opacity: 0.8, marginBottom: 14 }}>
+        {card.number ? `#${card.number}` : null}
+        {card.rarity ? ` · ${card.rarity}` : null}
+        {card.set?.name ? ` · ${card.set.name}` : null}
+        {card.year ? ` · ${card.year}` : null}
       </div>
+
+      {card.images?.large ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={card.images.large}
+          alt={card.name}
+          style={{ maxWidth: 420, width: "100%", borderRadius: 12 }}
+        />
+      ) : (
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 420,
+            height: 520,
+            borderRadius: 12,
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: 0.8,
+          }}
+        >
+          No image stored yet
+        </div>
+      )}
     </main>
   );
 }
