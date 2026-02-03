@@ -1,134 +1,129 @@
 // src/app/api/pokemon/cards/[cardId]/route.ts
 import { NextResponse } from "next/server";
+import { getRequestContext } from "@cloudflare/next-on-pages";
 
 export const runtime = "edge";
 
-function json(data: any, init?: ResponseInit) {
+// Cache at Cloudflare edge (fast + resilient). Adjust if you want shorter/longer.
+const CACHE_HEADERS = {
+  "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
+};
+
+function ok(data: any, init?: ResponseInit) {
   return NextResponse.json(data, {
     ...init,
-    headers: {
-      "Cache-Control": "no-store",
-      ...(init?.headers || {}),
-    },
+    headers: { ...CACHE_HEADERS, ...(init?.headers || {}) },
   });
 }
 
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
+function err(message: string, status = 500, extra?: any) {
+  return NextResponse.json(
+    { error: message, ...(extra || {}) },
+    { status, headers: { ...CACHE_HEADERS } }
+  );
 }
 
-async function fetchUpstream(cardId: string) {
-  const apiKey = process.env.POKEMONTCG_API_KEY;
-  const url = `https://api.pokemontcg.io/v2/cards/${encodeURIComponent(cardId)}`;
-
-  // Retry for transient 504s / non-JSON responses
-  const delays = [0, 250, 750, 1500]; // 4 attempts total
-
-  let lastText = "";
-  let lastStatus = 0;
-
-  for (let i = 0; i < delays.length; i++) {
-    if (delays[i] > 0) await sleep(delays[i]);
-
-    const resp = await fetch(url, {
-      headers: {
-        ...(apiKey ? { "X-Api-Key": apiKey } : {}),
-        // Sometimes helps avoid edge cases with upstream behavior
-        "Accept": "application/json",
-      },
-      // Cloudflare Workers hints (safe even if ignored)
-      cf: { cacheTtl: 0, cacheEverything: false } as any,
-    });
-
-    lastStatus = resp.status;
-    lastText = await resp.text();
-
-    // If upstream gave plain "error code: 504" or other non-JSON, retry
-    let parsed: any = null;
+function asObject(maybeJson: any) {
+  if (!maybeJson) return null;
+  if (typeof maybeJson === "object") return maybeJson;
+  if (typeof maybeJson === "string") {
     try {
-      parsed = JSON.parse(lastText);
+      return JSON.parse(maybeJson);
     } catch {
-      // non-JSON => retry unless this was the final attempt
-      if (i < delays.length - 1) continue;
-
-      return {
-        ok: false as const,
-        status: lastStatus,
-        kind: "non-json" as const,
-        bodyPreview: lastText.slice(0, 200),
-      };
+      return null;
     }
-
-    // JSON but not ok => retry if 5xx
-    if (!resp.ok) {
-      if (resp.status >= 500 && i < delays.length - 1) continue;
-
-      return {
-        ok: false as const,
-        status: resp.status,
-        kind: "json-error" as const,
-        upstream: parsed,
-      };
-    }
-
-    return {
-      ok: true as const,
-      status: resp.status,
-      upstream: parsed,
-    };
   }
-
-  return {
-    ok: false as const,
-    status: lastStatus || 504,
-    kind: "non-json" as const,
-    bodyPreview: lastText.slice(0, 200) || "error code: 504",
-  };
+  return null;
 }
 
 export async function GET(
   _req: Request,
   { params }: { params: { cardId: string } }
 ) {
-  try {
-    const cardId = params?.cardId;
-    if (!cardId) return json({ error: "Missing cardId" }, { status: 400 });
+  const cardId = params?.cardId;
+  if (!cardId) return err("Missing cardId", 400);
 
-    const result = await fetchUpstream(cardId);
+  // D1 binding via next-on-pages request context
+  const { env } = getRequestContext();
+  const db = env?.DB as D1Database | undefined;
 
-    if (!result.ok) {
-      // Make this a clean, actionable error for the UI
-      return json(
-        {
-          error: "Upstream timeout or malformed response",
-          status: result.status,
-          ...(result.kind === "non-json"
-            ? { bodyPreview: result.bodyPreview }
-            : { upstream: result.upstream }),
-          hint:
-            "PokémonTCG API is returning intermittent 504s from Cloudflare. Try again, or we can switch card detail reads to D1 to eliminate upstream dependency.",
-        },
-        { status: 503 }
-      );
-    }
-
-    const parsed = result.upstream;
-
-    // Normalize to { data: card }
-    const card = parsed?.data ?? parsed?.card ?? parsed ?? null;
-
-    if (!card) {
-      return json(
-        { error: "No card data found in upstream response", upstream: parsed },
-        { status: 502 }
-      );
-    }
-
-    return json({ data: card }, { status: 200 });
-  } catch (err: any) {
-    return json(
-      { error: "Unhandled error", message: String(err?.message || err) },
-      { status: 500 }
-    );
+  if (!db) {
+    return err("Database binding DB not found (D1 not configured).", 500);
   }
+
+  // Try a couple likely table/column shapes to be resilient.
+  // We DO NOT call PokémonTCG here — D1 only.
+  const candidates: Array<{
+    table: string;
+    where: string;
+    columns: string;
+  }> = [
+    // Most common pattern: a JSON blob column
+    { table: "pokemon_cards", where: "id = ?", columns: "id, data, json, card" },
+    { table: "cards", where: "id = ?", columns: "id, data, json, card" },
+
+    // Flat columns pattern (images may be separate)
+    {
+      table: "pokemon_cards",
+      where: "id = ?",
+      columns:
+        "id, name, number, setId, rarity, supertype, subtypes, imagesSmall, imagesLarge, imageSmall, imageLarge, image",
+    },
+    {
+      table: "cards",
+      where: "id = ?",
+      columns:
+        "id, name, number, setId, rarity, supertype, subtypes, imagesSmall, imagesLarge, imageSmall, imageLarge, image",
+    },
+  ];
+
+  let row: any = null;
+  let lastError: any = null;
+
+  for (const c of candidates) {
+    try {
+      const sql = `SELECT ${c.columns} FROM ${c.table} WHERE ${c.where} LIMIT 1`;
+      row = await db.prepare(sql).bind(cardId).first();
+      if (row) break;
+    } catch (e) {
+      lastError = e;
+      // keep trying other shapes
+    }
+  }
+
+  if (!row) {
+    return err("Card not found in D1. Import may be incomplete.", 404, {
+      cardId,
+      hint: "This endpoint is D1-only and will not call pokemontcg.io.",
+      details: lastError ? String(lastError) : undefined,
+    });
+  }
+
+  // Prefer JSON blob if present
+  const blob =
+    asObject((row as any).data) || asObject((row as any).json) || asObject((row as any).card);
+
+  if (blob) {
+    // Ensure id is present
+    if (!blob.id) blob.id = row.id ?? cardId;
+    return ok(blob);
+  }
+
+  // Otherwise return the row as-is (flat columns)
+  // Normalize some common image fields into an "images" object if possible
+  const imageLarge =
+    (row as any).imagesLarge || (row as any).imageLarge || (row as any).image || null;
+  const imageSmall =
+    (row as any).imagesSmall || (row as any).imageSmall || (row as any).image || null;
+
+  const normalized = {
+    ...row,
+    id: row.id ?? cardId,
+    images:
+      imageLarge || imageSmall
+        ? { large: imageLarge ?? undefined, small: imageSmall ?? undefined }
+        : undefined,
+  };
+
+  return ok(normalized);
 }
