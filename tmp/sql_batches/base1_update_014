@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/71.png', image_path='https://images.pokemontcg.io/base1/71.png' WHERE canonical_name='pokemon-base1-71-computer-search';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/72.png', image_path='https://images.pokemontcg.io/base1/72.png' WHERE canonical_name='pokemon-base1-72-devolution-spray';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/73.png', image_path='https://images.pokemontcg.io/base1/73.png' WHERE canonical_name='pokemon-base1-73-imposter-professor-oak';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/74.png', image_path='https://images.pokemontcg.io/base1/74.png' WHERE canonical_name='pokemon-base1-74-item-finder';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/75.png', image_path='https://images.pokemontcg.io/base1/75.png' WHERE canonical_name='pokemon-base1-75-lass';

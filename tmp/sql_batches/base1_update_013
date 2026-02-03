@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/66.png', image_path='https://images.pokemontcg.io/base1/66.png' WHERE canonical_name='pokemon-base1-66-tangela';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/67.png', image_path='https://images.pokemontcg.io/base1/67.png' WHERE canonical_name='pokemon-base1-67-voltorb';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/68.png', image_path='https://images.pokemontcg.io/base1/68.png' WHERE canonical_name='pokemon-base1-68-vulpix';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/69.png', image_path='https://images.pokemontcg.io/base1/69.png' WHERE canonical_name='pokemon-base1-69-weedle';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/70.png', image_path='https://images.pokemontcg.io/base1/70.png' WHERE canonical_name='pokemon-base1-70-clefairy-doll';

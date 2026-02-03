@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/26.png', image_path='https://images.pokemontcg.io/base1/26.png' WHERE canonical_name='pokemon-base1-26-dratini';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/27.png', image_path='https://images.pokemontcg.io/base1/27.png' WHERE canonical_name='pokemon-base1-27-farfetchd';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/28.png', image_path='https://images.pokemontcg.io/base1/28.png' WHERE canonical_name='pokemon-base1-28-growlithe';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/29.png', image_path='https://images.pokemontcg.io/base1/29.png' WHERE canonical_name='pokemon-base1-29-haunter';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/30.png', image_path='https://images.pokemontcg.io/base1/30.png' WHERE canonical_name='pokemon-base1-30-ivysaur';

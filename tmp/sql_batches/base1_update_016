@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/81.png', image_path='https://images.pokemontcg.io/base1/81.png' WHERE canonical_name='pokemon-base1-81-energy-retrieval';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/82.png', image_path='https://images.pokemontcg.io/base1/82.png' WHERE canonical_name='pokemon-base1-82-full-heal';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/83.png', image_path='https://images.pokemontcg.io/base1/83.png' WHERE canonical_name='pokemon-base1-83-maintenance';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/84.png', image_path='https://images.pokemontcg.io/base1/84.png' WHERE canonical_name='pokemon-base1-84-pluspower';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/85.png', image_path='https://images.pokemontcg.io/base1/85.png' WHERE canonical_name='pokemon-base1-85-pokemon-center';

@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/1.png', image_path='https://images.pokemontcg.io/base1/1.png' WHERE canonical_name='pokemon-base1-1-alakazam';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/2.png', image_path='https://images.pokemontcg.io/base1/2.png' WHERE canonical_name='pokemon-base1-2-blastoise';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/3.png', image_path='https://images.pokemontcg.io/base1/3.png' WHERE canonical_name='pokemon-base1-3-chansey';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/4.png', image_path='https://images.pokemontcg.io/base1/4.png' WHERE canonical_name='pokemon-base1-4-charizard';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/5.png', image_path='https://images.pokemontcg.io/base1/5.png' WHERE canonical_name='pokemon-base1-5-clefairy';

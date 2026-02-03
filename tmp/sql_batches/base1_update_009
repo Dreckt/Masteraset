@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/46.png', image_path='https://images.pokemontcg.io/base1/46.png' WHERE canonical_name='pokemon-base1-46-charmander';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/47.png', image_path='https://images.pokemontcg.io/base1/47.png' WHERE canonical_name='pokemon-base1-47-diglett';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/48.png', image_path='https://images.pokemontcg.io/base1/48.png' WHERE canonical_name='pokemon-base1-48-doduo';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/49.png', image_path='https://images.pokemontcg.io/base1/49.png' WHERE canonical_name='pokemon-base1-49-drowzee';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/50.png', image_path='https://images.pokemontcg.io/base1/50.png' WHERE canonical_name='pokemon-base1-50-gastly';

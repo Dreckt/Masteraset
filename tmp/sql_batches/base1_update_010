@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/51.png', image_path='https://images.pokemontcg.io/base1/51.png' WHERE canonical_name='pokemon-base1-51-koffing';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/52.png', image_path='https://images.pokemontcg.io/base1/52.png' WHERE canonical_name='pokemon-base1-52-machop';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/53.png', image_path='https://images.pokemontcg.io/base1/53.png' WHERE canonical_name='pokemon-base1-53-magnemite';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/54.png', image_path='https://images.pokemontcg.io/base1/54.png' WHERE canonical_name='pokemon-base1-54-metapod';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/55.png', image_path='https://images.pokemontcg.io/base1/55.png' WHERE canonical_name='pokemon-base1-55-nidoran';

@@ -1,49 +1,156 @@
-# MASTERASET_STATE
+MasteraSet – Project Status & Handoff
 
-Last updated: 2026-02-01  
-Owner: Derek (Dreckt)  
-Repo: Dreckt/Masteraset  
-Hosting: Cloudflare Pages (Next.js on Pages adapter), D1
+Last updated: 2026-02-02
+Owner: Derek (romad002 / Dreckt)
+Repo: https://github.com/Dreckt/Masteraset
 
----
+Prod: https://masteraset.com
 
-## Current Situation
+Stack: Next.js App Router + Cloudflare Pages + D1
+Build Adapter: @cloudflare/next-on-pages (with async_hooks patch)
 
-Cloudflare Pages builds have been failing due to:
-- Duplicate routing trees (`/app` and `/src/app`) causing edits to land in the wrong place and builds to compile against unexpected files.
-- Inconsistent import patterns (`@/…` vs relative imports) causing “works locally / fails in Pages” behavior.
-- Auth constants/types drifting (e.g., `SESSION_COOKIE_NAME` imported but not exported from the canonical auth module).
+1. What’s Working
 
-This has created a loop where fixes land in one tree but the build compiles another.
+App is deployed on Cloudflare Pages
 
----
+D1 database connected (local + remote)
 
-## Goal (Massive Fix)
+Games table is seeded:
 
-**Single source of truth moving forward:**
-- ✅ Use **ONLY** `src/app` for all Next.js App Router routes.
-- ❌ Delete legacy `app/` directory entirely (no duplicates).
-- ✅ Standardize imports so `@/` always works everywhere.
-- ✅ Ensure auth constants/types are exported from one canonical module and imported consistently.
+name	slug
+Pokémon	pokemon
+One Piece	one-piece
+Weiss Schwarz	weiss
+Lorcana	lorcana
+Magic: The Gathering	mtg
 
----
+Pokémon Base Set (base1) fully seeded:
 
-## Non-Negotiable Rules
+102 cards
 
-1. There must be **no `app/` folder** at repo root after the fix.
-2. All routes live under **`src/app/**`.
-3. Imports must be standardized:
-   - Use `@/…` imports (preferred)
-   - `@/*` must map to `src/*` in `tsconfig.json`
-4. Auth constant `SESSION_COOKIE_NAME` must exist and be exported from the canonical auth module used by all routes.
-5. Local build must match Pages build:
-   - `npm run build` must pass
-   - `npx @cloudflare/next-on-pages` must pass (or equivalent Pages build command)
+Canonical IDs like: pokemon-base1-4-charizard
 
----
+/pokemon/sets/base1 now returns data
 
-## Implementation Plan (Do This In Order)
+Card list renders and is clickable
 
-### 0) Create safety branch
-```bash
-git checkout -b fix/unify-src-app
+2. Pokémon Base Set Images (SUCCESS)
+
+We performed a one-time pull from the PokémonTCG CDN (not API) and patched D1.
+
+Image pull result
+
+102 / 102 images downloaded
+
+Stored locally at:
+
+tmp/pokemon-images/base1/
+
+CDN pattern
+https://images.pokemontcg.io/base1/{number}.png
+
+
+Example:
+
+Charizard → https://images.pokemontcg.io/base1/4.png
+Pikachu   → https://images.pokemontcg.io/base1/58.png
+
+DB columns now populated
+image_source   = pokemontcg_cdn
+image_filename = base1/{num}.png
+image_path     = https://images.pokemontcg.io/base1/{num}.png
+
+
+Verified:
+
+pokemon-base1-1-alakazam
+pokemon-base1-4-charizard
+pokemon-base1-58-pikachu
+
+3. D1 Schema (Current)
+games
+
+| id (PK) | name | slug |
+
+cards
+column	type
+id (PK)	TEXT
+game_id (FK → games.id)	TEXT
+canonical_name	TEXT
+name_sort	TEXT
+set_name	TEXT
+card_id	TEXT
+card_name	TEXT
+rarity	TEXT
+year	INTEGER
+image_source	TEXT
+image_filename	TEXT
+image_path	TEXT
+created_at	TEXT
+4. Major Bugs We Hit (Now Understood)
+A) Cloudflare Pages returned:
+Not Found
+content-type: text/plain
+content-length: 9
+
+
+This means Pages deployed static files only — the Next worker was missing.
+
+Root cause
+
+The Pages deployment did not include:
+
+.vercel/output/static/_worker.js
+.vercel/output/static/_routes.json
+
+
+Without those, Cloudflare treats the site as static → all navigation breaks.
+
+5. Required Permanent Fix (MANDATORY)
+
+Always deploy the Next worker output, never the repo root.
+
+Local build pipeline
+rm -rf .vercel
+npm ci
+npx @cloudflare/next-on-pages
+
+find .vercel/output/static/_worker.js/__next-on-pages-dist__/functions -type f -name "*.js" -print0 \
+ | xargs -0 perl -pi -e 's/"async_hooks"/"node:async_hooks"/g; s/node:node:/node:/g'
+
+Verify before deploy
+ls .vercel/output/static/_worker.js
+ls .vercel/output/static/_routes.json
+
+Deploy to Pages
+npx wrangler pages deployment create .vercel/output/static --project-name masteraset
+
+6. Current Blocker
+
+Site is intermittently serving plain Not Found instead of Next pages, which means the last deployment lost the worker artifacts.
+
+Navigation breaks:
+
+/
+
+/games
+
+/pokemon/sets
+
+/pokemon/sets/base1
+
+We must redeploy using the verified worker output folder.
+
+7. Next Steps in New Chat
+
+Rebuild locally
+
+Confirm _worker.js + _routes.json
+
+Redeploy via wrangler pages deployment create
+
+Confirm homepage renders HTML again
+
+Add image rendering on card pages using image_path
+
+If you paste this file into the first message of the new chat, I’ll immediately continue from the correct state with zero re-explaining.

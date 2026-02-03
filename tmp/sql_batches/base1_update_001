@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/6.png', image_path='https://images.pokemontcg.io/base1/6.png' WHERE canonical_name='pokemon-base1-6-gyarados';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/7.png', image_path='https://images.pokemontcg.io/base1/7.png' WHERE canonical_name='pokemon-base1-7-hitmonchan';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/8.png', image_path='https://images.pokemontcg.io/base1/8.png' WHERE canonical_name='pokemon-base1-8-machamp';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/9.png', image_path='https://images.pokemontcg.io/base1/9.png' WHERE canonical_name='pokemon-base1-9-magneton';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/10.png', image_path='https://images.pokemontcg.io/base1/10.png' WHERE canonical_name='pokemon-base1-10-mewtwo';

@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/76.png', image_path='https://images.pokemontcg.io/base1/76.png' WHERE canonical_name='pokemon-base1-76-pokemon-breeder';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/77.png', image_path='https://images.pokemontcg.io/base1/77.png' WHERE canonical_name='pokemon-base1-77-pokemon-trader';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/78.png', image_path='https://images.pokemontcg.io/base1/78.png' WHERE canonical_name='pokemon-base1-78-scoop-up';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/79.png', image_path='https://images.pokemontcg.io/base1/79.png' WHERE canonical_name='pokemon-base1-79-super-energy-removal';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/80.png', image_path='https://images.pokemontcg.io/base1/80.png' WHERE canonical_name='pokemon-base1-80-defender';

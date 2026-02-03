@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/16.png', image_path='https://images.pokemontcg.io/base1/16.png' WHERE canonical_name='pokemon-base1-16-zapdos';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/17.png', image_path='https://images.pokemontcg.io/base1/17.png' WHERE canonical_name='pokemon-base1-17-beedrill';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/18.png', image_path='https://images.pokemontcg.io/base1/18.png' WHERE canonical_name='pokemon-base1-18-dragonair';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/19.png', image_path='https://images.pokemontcg.io/base1/19.png' WHERE canonical_name='pokemon-base1-19-dugtrio';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/20.png', image_path='https://images.pokemontcg.io/base1/20.png' WHERE canonical_name='pokemon-base1-20-electabuzz';

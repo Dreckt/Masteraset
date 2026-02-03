@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/11.png', image_path='https://images.pokemontcg.io/base1/11.png' WHERE canonical_name='pokemon-base1-11-nidoking';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/12.png', image_path='https://images.pokemontcg.io/base1/12.png' WHERE canonical_name='pokemon-base1-12-ninetales';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/13.png', image_path='https://images.pokemontcg.io/base1/13.png' WHERE canonical_name='pokemon-base1-13-poliwrath';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/14.png', image_path='https://images.pokemontcg.io/base1/14.png' WHERE canonical_name='pokemon-base1-14-raichu';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/15.png', image_path='https://images.pokemontcg.io/base1/15.png' WHERE canonical_name='pokemon-base1-15-venusaur';

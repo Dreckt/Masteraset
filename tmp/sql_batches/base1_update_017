@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/86.png', image_path='https://images.pokemontcg.io/base1/86.png' WHERE canonical_name='pokemon-base1-86-pokemon-flute';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/87.png', image_path='https://images.pokemontcg.io/base1/87.png' WHERE canonical_name='pokemon-base1-87-pokedex';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/88.png', image_path='https://images.pokemontcg.io/base1/88.png' WHERE canonical_name='pokemon-base1-88-professor-oak';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/89.png', image_path='https://images.pokemontcg.io/base1/89.png' WHERE canonical_name='pokemon-base1-89-revive';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/90.png', image_path='https://images.pokemontcg.io/base1/90.png' WHERE canonical_name='pokemon-base1-90-super-potion';

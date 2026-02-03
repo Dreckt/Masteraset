@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/21.png', image_path='https://images.pokemontcg.io/base1/21.png' WHERE canonical_name='pokemon-base1-21-electrode';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/22.png', image_path='https://images.pokemontcg.io/base1/22.png' WHERE canonical_name='pokemon-base1-22-pidgeotto';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/23.png', image_path='https://images.pokemontcg.io/base1/23.png' WHERE canonical_name='pokemon-base1-23-arcanine';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/24.png', image_path='https://images.pokemontcg.io/base1/24.png' WHERE canonical_name='pokemon-base1-24-charmeleon';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/25.png', image_path='https://images.pokemontcg.io/base1/25.png' WHERE canonical_name='pokemon-base1-25-dewgong';

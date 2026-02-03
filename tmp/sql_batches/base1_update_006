@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/31.png', image_path='https://images.pokemontcg.io/base1/31.png' WHERE canonical_name='pokemon-base1-31-jynx';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/32.png', image_path='https://images.pokemontcg.io/base1/32.png' WHERE canonical_name='pokemon-base1-32-kadabra';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/33.png', image_path='https://images.pokemontcg.io/base1/33.png' WHERE canonical_name='pokemon-base1-33-kakuna';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/34.png', image_path='https://images.pokemontcg.io/base1/34.png' WHERE canonical_name='pokemon-base1-34-machoke';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/35.png', image_path='https://images.pokemontcg.io/base1/35.png' WHERE canonical_name='pokemon-base1-35-magikarp';

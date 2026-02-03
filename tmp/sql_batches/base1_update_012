@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/61.png', image_path='https://images.pokemontcg.io/base1/61.png' WHERE canonical_name='pokemon-base1-61-rattata';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/62.png', image_path='https://images.pokemontcg.io/base1/62.png' WHERE canonical_name='pokemon-base1-62-sandshrew';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/63.png', image_path='https://images.pokemontcg.io/base1/63.png' WHERE canonical_name='pokemon-base1-63-squirtle';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/64.png', image_path='https://images.pokemontcg.io/base1/64.png' WHERE canonical_name='pokemon-base1-64-starmie';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/65.png', image_path='https://images.pokemontcg.io/base1/65.png' WHERE canonical_name='pokemon-base1-65-staryu';

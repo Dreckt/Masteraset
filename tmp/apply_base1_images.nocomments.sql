@@ -1,0 +1,614 @@
+BEGIN TRANSACTION;
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/1.png',
+    image_path='https://images.pokemontcg.io/base1/1.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-1-alakazam';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/2.png',
+    image_path='https://images.pokemontcg.io/base1/2.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-2-blastoise';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/3.png',
+    image_path='https://images.pokemontcg.io/base1/3.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-3-chansey';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/4.png',
+    image_path='https://images.pokemontcg.io/base1/4.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-4-charizard';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/5.png',
+    image_path='https://images.pokemontcg.io/base1/5.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-5-clefairy';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/6.png',
+    image_path='https://images.pokemontcg.io/base1/6.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-6-gyarados';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/7.png',
+    image_path='https://images.pokemontcg.io/base1/7.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-7-hitmonchan';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/8.png',
+    image_path='https://images.pokemontcg.io/base1/8.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-8-machamp';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/9.png',
+    image_path='https://images.pokemontcg.io/base1/9.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-9-magneton';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/10.png',
+    image_path='https://images.pokemontcg.io/base1/10.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-10-mewtwo';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/11.png',
+    image_path='https://images.pokemontcg.io/base1/11.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-11-nidoking';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/12.png',
+    image_path='https://images.pokemontcg.io/base1/12.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-12-ninetales';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/13.png',
+    image_path='https://images.pokemontcg.io/base1/13.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-13-poliwrath';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/14.png',
+    image_path='https://images.pokemontcg.io/base1/14.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-14-raichu';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/15.png',
+    image_path='https://images.pokemontcg.io/base1/15.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-15-venusaur';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/16.png',
+    image_path='https://images.pokemontcg.io/base1/16.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-16-zapdos';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/17.png',
+    image_path='https://images.pokemontcg.io/base1/17.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-17-beedrill';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/18.png',
+    image_path='https://images.pokemontcg.io/base1/18.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-18-dragonair';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/19.png',
+    image_path='https://images.pokemontcg.io/base1/19.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-19-dugtrio';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/20.png',
+    image_path='https://images.pokemontcg.io/base1/20.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-20-electabuzz';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/21.png',
+    image_path='https://images.pokemontcg.io/base1/21.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-21-electrode';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/22.png',
+    image_path='https://images.pokemontcg.io/base1/22.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-22-pidgeotto';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/23.png',
+    image_path='https://images.pokemontcg.io/base1/23.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-23-arcanine';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/24.png',
+    image_path='https://images.pokemontcg.io/base1/24.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-24-charmeleon';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/25.png',
+    image_path='https://images.pokemontcg.io/base1/25.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-25-dewgong';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/26.png',
+    image_path='https://images.pokemontcg.io/base1/26.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-26-dratini';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/27.png',
+    image_path='https://images.pokemontcg.io/base1/27.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-27-farfetchd';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/28.png',
+    image_path='https://images.pokemontcg.io/base1/28.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-28-growlithe';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/29.png',
+    image_path='https://images.pokemontcg.io/base1/29.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-29-haunter';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/30.png',
+    image_path='https://images.pokemontcg.io/base1/30.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-30-ivysaur';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/31.png',
+    image_path='https://images.pokemontcg.io/base1/31.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-31-jynx';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/32.png',
+    image_path='https://images.pokemontcg.io/base1/32.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-32-kadabra';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/33.png',
+    image_path='https://images.pokemontcg.io/base1/33.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-33-kakuna';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/34.png',
+    image_path='https://images.pokemontcg.io/base1/34.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-34-machoke';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/35.png',
+    image_path='https://images.pokemontcg.io/base1/35.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-35-magikarp';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/36.png',
+    image_path='https://images.pokemontcg.io/base1/36.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-36-magmar';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/37.png',
+    image_path='https://images.pokemontcg.io/base1/37.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-37-nidorino';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/38.png',
+    image_path='https://images.pokemontcg.io/base1/38.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-38-poliwhirl';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/39.png',
+    image_path='https://images.pokemontcg.io/base1/39.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-39-porygon';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/40.png',
+    image_path='https://images.pokemontcg.io/base1/40.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-40-raticate';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/41.png',
+    image_path='https://images.pokemontcg.io/base1/41.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-41-seel';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/42.png',
+    image_path='https://images.pokemontcg.io/base1/42.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-42-wartortle';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/43.png',
+    image_path='https://images.pokemontcg.io/base1/43.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-43-abra';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/44.png',
+    image_path='https://images.pokemontcg.io/base1/44.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-44-bulbasaur';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/45.png',
+    image_path='https://images.pokemontcg.io/base1/45.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-45-caterpie';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/46.png',
+    image_path='https://images.pokemontcg.io/base1/46.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-46-charmander';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/47.png',
+    image_path='https://images.pokemontcg.io/base1/47.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-47-diglett';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/48.png',
+    image_path='https://images.pokemontcg.io/base1/48.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-48-doduo';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/49.png',
+    image_path='https://images.pokemontcg.io/base1/49.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-49-drowzee';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/50.png',
+    image_path='https://images.pokemontcg.io/base1/50.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-50-gastly';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/51.png',
+    image_path='https://images.pokemontcg.io/base1/51.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-51-koffing';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/52.png',
+    image_path='https://images.pokemontcg.io/base1/52.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-52-machop';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/53.png',
+    image_path='https://images.pokemontcg.io/base1/53.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-53-magnemite';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/54.png',
+    image_path='https://images.pokemontcg.io/base1/54.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-54-metapod';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/55.png',
+    image_path='https://images.pokemontcg.io/base1/55.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-55-nidoran';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/56.png',
+    image_path='https://images.pokemontcg.io/base1/56.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-56-onix';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/57.png',
+    image_path='https://images.pokemontcg.io/base1/57.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-57-pidgey';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/58.png',
+    image_path='https://images.pokemontcg.io/base1/58.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-58-pikachu';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/59.png',
+    image_path='https://images.pokemontcg.io/base1/59.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-59-poliwag';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/60.png',
+    image_path='https://images.pokemontcg.io/base1/60.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-60-ponyta';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/61.png',
+    image_path='https://images.pokemontcg.io/base1/61.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-61-rattata';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/62.png',
+    image_path='https://images.pokemontcg.io/base1/62.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-62-sandshrew';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/63.png',
+    image_path='https://images.pokemontcg.io/base1/63.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-63-squirtle';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/64.png',
+    image_path='https://images.pokemontcg.io/base1/64.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-64-starmie';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/65.png',
+    image_path='https://images.pokemontcg.io/base1/65.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-65-staryu';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/66.png',
+    image_path='https://images.pokemontcg.io/base1/66.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-66-tangela';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/67.png',
+    image_path='https://images.pokemontcg.io/base1/67.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-67-voltorb';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/68.png',
+    image_path='https://images.pokemontcg.io/base1/68.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-68-vulpix';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/69.png',
+    image_path='https://images.pokemontcg.io/base1/69.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-69-weedle';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/70.png',
+    image_path='https://images.pokemontcg.io/base1/70.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-70-clefairy-doll';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/71.png',
+    image_path='https://images.pokemontcg.io/base1/71.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-71-computer-search';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/72.png',
+    image_path='https://images.pokemontcg.io/base1/72.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-72-devolution-spray';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/73.png',
+    image_path='https://images.pokemontcg.io/base1/73.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-73-imposter-professor-oak';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/74.png',
+    image_path='https://images.pokemontcg.io/base1/74.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-74-item-finder';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/75.png',
+    image_path='https://images.pokemontcg.io/base1/75.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-75-lass';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/76.png',
+    image_path='https://images.pokemontcg.io/base1/76.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-76-pokemon-breeder';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/77.png',
+    image_path='https://images.pokemontcg.io/base1/77.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-77-pokemon-trader';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/78.png',
+    image_path='https://images.pokemontcg.io/base1/78.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-78-scoop-up';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/79.png',
+    image_path='https://images.pokemontcg.io/base1/79.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-79-super-energy-removal';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/80.png',
+    image_path='https://images.pokemontcg.io/base1/80.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-80-defender';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/81.png',
+    image_path='https://images.pokemontcg.io/base1/81.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-81-energy-retrieval';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/82.png',
+    image_path='https://images.pokemontcg.io/base1/82.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-82-full-heal';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/83.png',
+    image_path='https://images.pokemontcg.io/base1/83.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-83-maintenance';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/84.png',
+    image_path='https://images.pokemontcg.io/base1/84.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-84-pluspower';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/85.png',
+    image_path='https://images.pokemontcg.io/base1/85.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-85-pokemon-center';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/86.png',
+    image_path='https://images.pokemontcg.io/base1/86.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-86-pokemon-flute';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/87.png',
+    image_path='https://images.pokemontcg.io/base1/87.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-87-pokedex';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/88.png',
+    image_path='https://images.pokemontcg.io/base1/88.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-88-professor-oak';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/89.png',
+    image_path='https://images.pokemontcg.io/base1/89.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-89-revive';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/90.png',
+    image_path='https://images.pokemontcg.io/base1/90.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-90-super-potion';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/91.png',
+    image_path='https://images.pokemontcg.io/base1/91.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-91-bill';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/92.png',
+    image_path='https://images.pokemontcg.io/base1/92.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-92-energy-removal';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/93.png',
+    image_path='https://images.pokemontcg.io/base1/93.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-93-gust-of-wind';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/94.png',
+    image_path='https://images.pokemontcg.io/base1/94.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-94-potion';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/95.png',
+    image_path='https://images.pokemontcg.io/base1/95.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-95-switch';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/96.png',
+    image_path='https://images.pokemontcg.io/base1/96.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-96-double-colorless-energy';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/97.png',
+    image_path='https://images.pokemontcg.io/base1/97.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-97-fighting-energy';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/98.png',
+    image_path='https://images.pokemontcg.io/base1/98.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-98-fire-energy';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/99.png',
+    image_path='https://images.pokemontcg.io/base1/99.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-99-grass-energy';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/100.png',
+    image_path='https://images.pokemontcg.io/base1/100.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-100-lightning-energy';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/101.png',
+    image_path='https://images.pokemontcg.io/base1/101.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-101-psychic-energy';
+UPDATE cards
+SET image_source='pokemontcg_cdn',
+    image_filename='base1/102.png',
+    image_path='https://images.pokemontcg.io/base1/102.png'
+WHERE game_id='pokemon'
+  AND canonical_name='pokemon-base1-102-water-energy';
+COMMIT;

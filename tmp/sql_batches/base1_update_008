@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/41.png', image_path='https://images.pokemontcg.io/base1/41.png' WHERE canonical_name='pokemon-base1-41-seel';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/42.png', image_path='https://images.pokemontcg.io/base1/42.png' WHERE canonical_name='pokemon-base1-42-wartortle';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/43.png', image_path='https://images.pokemontcg.io/base1/43.png' WHERE canonical_name='pokemon-base1-43-abra';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/44.png', image_path='https://images.pokemontcg.io/base1/44.png' WHERE canonical_name='pokemon-base1-44-bulbasaur';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/45.png', image_path='https://images.pokemontcg.io/base1/45.png' WHERE canonical_name='pokemon-base1-45-caterpie';

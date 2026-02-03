@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/36.png', image_path='https://images.pokemontcg.io/base1/36.png' WHERE canonical_name='pokemon-base1-36-magmar';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/37.png', image_path='https://images.pokemontcg.io/base1/37.png' WHERE canonical_name='pokemon-base1-37-nidorino';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/38.png', image_path='https://images.pokemontcg.io/base1/38.png' WHERE canonical_name='pokemon-base1-38-poliwhirl';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/39.png', image_path='https://images.pokemontcg.io/base1/39.png' WHERE canonical_name='pokemon-base1-39-porygon';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/40.png', image_path='https://images.pokemontcg.io/base1/40.png' WHERE canonical_name='pokemon-base1-40-raticate';

@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/96.png', image_path='https://images.pokemontcg.io/base1/96.png' WHERE canonical_name='pokemon-base1-96-double-colorless-energy';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/97.png', image_path='https://images.pokemontcg.io/base1/97.png' WHERE canonical_name='pokemon-base1-97-fighting-energy';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/98.png', image_path='https://images.pokemontcg.io/base1/98.png' WHERE canonical_name='pokemon-base1-98-fire-energy';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/99.png', image_path='https://images.pokemontcg.io/base1/99.png' WHERE canonical_name='pokemon-base1-99-grass-energy';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/100.png', image_path='https://images.pokemontcg.io/base1/100.png' WHERE canonical_name='pokemon-base1-100-lightning-energy';

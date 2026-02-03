@@ -1,0 +1,2 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/101.png', image_path='https://images.pokemontcg.io/base1/101.png' WHERE canonical_name='pokemon-base1-101-psychic-energy';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/102.png', image_path='https://images.pokemontcg.io/base1/102.png' WHERE canonical_name='pokemon-base1-102-water-energy';

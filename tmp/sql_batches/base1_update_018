@@ -1,0 +1,5 @@
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/91.png', image_path='https://images.pokemontcg.io/base1/91.png' WHERE canonical_name='pokemon-base1-91-bill';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/92.png', image_path='https://images.pokemontcg.io/base1/92.png' WHERE canonical_name='pokemon-base1-92-energy-removal';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/93.png', image_path='https://images.pokemontcg.io/base1/93.png' WHERE canonical_name='pokemon-base1-93-gust-of-wind';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/94.png', image_path='https://images.pokemontcg.io/base1/94.png' WHERE canonical_name='pokemon-base1-94-potion';
+UPDATE cards SET image_source='pokemontcg_cdn', image_filename='base1/95.png', image_path='https://images.pokemontcg.io/base1/95.png' WHERE canonical_name='pokemon-base1-95-switch';
