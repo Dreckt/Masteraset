@@ -43,7 +43,7 @@ export default function RootLayout({
               <a href="/">Home</a>
               <a href="/dashboard">Dashboard</a>
               <a href="/games">Sets</a>
-              <a href="/pokemon">Pokémon</a>
+	      <a href="/pokemon/sets">Pokémon</a>
             </nav>
           </div>
         </header>
