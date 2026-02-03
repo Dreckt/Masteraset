@@ -1,27 +1,11 @@
 // src/app/games/page.tsx
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-static";
+export const revalidate = 3600;
 
 import Link from "next/link";
-import { db } from "@/lib/db";
 
-type GameRow = {
-  id: string;
-  name: string;
-};
-
-export default async function GamesPage() {
-  // Pull games from D1 (your existing “Games Library”)
-  let games: GameRow[] = [];
-  try {
-    games = await db
-      .prepare(`SELECT id, name FROM games ORDER BY name ASC`)
-      .all()
-      .then((r: any) => (r?.results ?? []) as GameRow[]);
-  } catch {
-    games = [];
-  }
-
+export default function GamesPage() {
   return (
     <div className="ms-container">
       <div className="ms-panel" style={{ padding: 22 }}>
@@ -38,17 +22,26 @@ export default async function GamesPage() {
               Games <span className="ms-accent-cyan">Library</span>
             </div>
             <div className="ms-muted" style={{ marginTop: 6 }}>
-              Choose a game to browse sets and manage your collection.
+              Browse by source. Pokémon uses the public TCG API. Database games
+              will come from your D1 library.
             </div>
           </div>
-          <Link className="ms-btn ms-btn-primary" href="/dashboard">
-            Dashboard
-          </Link>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <Link className="ms-btn ms-btn-primary" href="/pokemon/sets">
+              Pokémon Sets
+            </Link>
+            <Link className="ms-btn" href="/dashboard">
+              Dashboard
+            </Link>
+            <Link className="ms-btn" href="/admin/import">
+              Admin Import
+            </Link>
+          </div>
         </div>
 
         <div className="ms-divider" style={{ marginTop: 16, marginBottom: 16 }} />
 
-        {/* IMPORTANT: Add an explicit Pokémon (API) card so Base1 is reachable */}
         <div
           style={{
             display: "grid",
@@ -57,58 +50,26 @@ export default async function GamesPage() {
           }}
         >
           <Link className="ms-card" href="/pokemon/sets" style={{ padding: 16 }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 10,
-              }}
-            >
-              <div style={{ fontWeight: 900, fontSize: 18 }}>Pokémon</div>
-              <span className="ms-chip">
-                <span className="ms-accent-cyan">●</span>{" "}
-                <span className="ms-muted">TCG API</span>
-              </span>
-            </div>
+            <div style={{ fontWeight: 900, fontSize: 18 }}>Pokémon</div>
             <div className="ms-muted" style={{ marginTop: 8 }}>
-              Browse Pokémon sets (Base1, Jungle, Fossil, etc.)
+              Browse Pokémon sets (Base Set, Jungle, Fossil, etc.)
             </div>
             <div className="ms-muted" style={{ marginTop: 12 }}>
               <span className="ms-accent-cyan">→</span> Go to /pokemon/sets
             </div>
           </Link>
 
-          {/* Your existing DB-driven games list */}
-          {games.map((g) => (
-            <Link
-              key={g.id}
-              className="ms-card"
-              href={`/games/${g.id}/sets`}
-              style={{ padding: 16 }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 10,
-                }}
-              >
-                <div style={{ fontWeight: 900, fontSize: 18 }}>{g.name}</div>
-                <span className="ms-chip">
-                  <span className="ms-accent-cyan">●</span>{" "}
-                  <span className="ms-muted">Sets</span>
-                </span>
-              </div>
-              <div className="ms-muted" style={{ marginTop: 8 }}>
-                Browse sets stored in your MasteraSet database.
-              </div>
-              <div className="ms-muted" style={{ marginTop: 12 }}>
-                <span className="ms-accent-cyan">→</span> Browse sets
-              </div>
-            </Link>
-          ))}
+          <div className="ms-card" style={{ padding: 16 }}>
+            <div style={{ fontWeight: 900, fontSize: 18 }}>Database Games</div>
+            <div className="ms-muted" style={{ marginTop: 8 }}>
+              This section will list games from your D1 tables (the ones that
+              currently produce UUID URLs like /games/&lt;id&gt;/sets).
+            </div>
+            <div className="ms-muted" style={{ marginTop: 12 }}>
+              For now: use <span className="ms-accent-cyan">Admin Import</span>{" "}
+              to add data, or navigate directly if you know the URL.
+            </div>
+          </div>
         </div>
       </div>
     </div>
