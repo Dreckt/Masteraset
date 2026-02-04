@@ -36,12 +36,26 @@ function safeJsonParse(s: string | null | undefined) {
   }
 }
 
+type PokemonTCGCard = {
+  id?: string;
+  name?: string;
+  number?: string;
+  rarity?: string;
+  images?: { small?: string; large?: string };
+  set?: { id?: string };
+};
+
+type PokemonTCGCardsResponse = {
+  data?: PokemonTCGCard[];
+};
+
 async function fetchFromPokemonTCG(
   apiKey: string | undefined,
   setId?: string,
   number?: string
-) {
+): Promise<PokemonTCGCard | null> {
   if (!setId || !number) return null;
+
   const q = `set.id:${setId} number:${number}`;
   const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`;
 
@@ -50,7 +64,9 @@ async function fetchFromPokemonTCG(
   });
 
   if (!res.ok) return null;
-  const body = await res.json();
+
+  // ✅ Give TS a real shape so build doesn't fail
+  const body = (await res.json()) as PokemonTCGCardsResponse;
   return body?.data?.[0] ?? null;
 }
 
@@ -92,8 +108,8 @@ export async function GET(
         });
       }
     }
-  } catch (e: any) {
-    // If D1 read fails for some reason, we still try API so user isn't blocked.
+  } catch {
+    // If D1 read fails, we still try API so user isn't blocked.
   }
 
   // 2) Not in cache yet → fetch from pokemontcg.io and write-through to D1
@@ -103,7 +119,8 @@ export async function GET(
     return err("Card not found (not in D1 cache, and API lookup failed).", 404, {
       cardId,
       tried: { setId, number },
-      hint: "If this is a valid card, verify your POKEMONTCG_API_KEY and that the card list endpoint is returning correct ids/numbers.",
+      hint:
+        "If this is a valid card, verify your POKEMONTCG_API_KEY and that the card list endpoint is returning correct ids/numbers.",
     });
   }
 
