@@ -18,7 +18,7 @@ type PokemonTCGCard = {
   name: string;
   number?: string;
   rarity?: string;
-  images?: any;
+  images?: any; // expected to include { small, large } for pokemontcg.io responses
 };
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -41,6 +41,25 @@ function getOriginFromHeaders() {
   const proto = h.get("x-forwarded-proto") || "https";
   if (!host) return "";
   return `${proto}://${host}`;
+}
+
+function badge(text: string) {
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        padding: "2px 8px",
+        borderRadius: 999,
+        fontSize: 12,
+        opacity: 0.9,
+        border: "1px solid rgba(255,255,255,0.14)",
+        background: "rgba(255,255,255,0.04)",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {text}
+    </span>
+  );
 }
 
 export default async function PokemonSetPage({
@@ -111,40 +130,102 @@ export default async function PokemonSetPage({
       </div>
 
       <h1 style={{ fontSize: 22, fontWeight: 800, margin: "6px 0" }}>{set.name}</h1>
-      <div style={{ opacity: 0.8, marginBottom: 14 }}>
-        {typeof set.total === "number" ? `${set.total} cards` : null}
-        {set.releaseDate ? ` · ${set.releaseDate}` : null}
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", opacity: 0.9, marginBottom: 14 }}>
+        {typeof set.total === "number" ? badge(`${set.total} cards`) : null}
+        {set.releaseDate ? badge(set.releaseDate) : null}
+        {set.series ? badge(set.series) : null}
       </div>
 
-      <h2 style={{ fontSize: 18, fontWeight: 700 }}>Cards</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Cards</h2>
+        <div style={{ opacity: 0.75, fontSize: 13 }}>
+          Tip: click a card for details
+        </div>
+      </div>
 
       {cards.length === 0 ? (
-        <p style={{ opacity: 0.8 }}>No cards returned for this set yet.</p>
+        <p style={{ opacity: 0.8, marginTop: 10 }}>No cards returned for this set yet.</p>
       ) : (
-        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 }}>
-          {cards.map((c) => (
-            <li
-              key={c.id}
-              style={{
-                border: "1px solid rgba(255,255,255,0.12)",
-                borderRadius: 10,
-                padding: 10,
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 10,
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 700 }}>
-                  <Link href={`/pokemon/cards/${encodeURIComponent(c.id)}`}>{c.name}</Link>
-                </div>
-                <div style={{ opacity: 0.8, fontSize: 13 }}>
-                  {c.number ? `#${c.number}` : null}
-                  {c.rarity ? ` · ${c.rarity}` : null}
-                </div>
-              </div>
-            </li>
-          ))}
+        <ul
+          style={{
+            listStyle: "none",
+            padding: 0,
+            margin: "12px 0 0 0",
+            display: "grid",
+            gap: 12,
+            // Responsive grid: more columns on larger screens
+            gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+            alignItems: "stretch",
+          }}
+        >
+          {cards.map((c) => {
+            const img = c?.images?.small || c?.images?.large || "";
+            const href = `/pokemon/cards/${encodeURIComponent(c.id)}`;
+            return (
+              <li
+                key={c.id}
+                style={{
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 12,
+                  padding: 10,
+                  background: "rgba(255,255,255,0.02)",
+                }}
+              >
+                <Link
+                  href={href}
+                  style={{
+                    textDecoration: "none",
+                    color: "inherit",
+                    display: "block",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "100%",
+                      aspectRatio: "2 / 3",
+                      borderRadius: 10,
+                      overflow: "hidden",
+                      border: "1px solid rgba(255,255,255,0.10)",
+                      background: "rgba(0,0,0,0.25)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {img ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={img}
+                        alt={c.name}
+                        loading="lazy"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          display: "block",
+                        }}
+                      />
+                    ) : (
+                      <div style={{ opacity: 0.6, fontSize: 12, padding: 10, textAlign: "center" }}>
+                        No image
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.2 }}>
+                      {c.name}
+                    </div>
+                    <div style={{ opacity: 0.8, fontSize: 12, marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {c.number ? badge(`#${c.number}`) : null}
+                      {c.rarity ? badge(c.rarity) : null}
+                    </div>
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </main>
