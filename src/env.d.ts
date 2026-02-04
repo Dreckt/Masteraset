@@ -1,14 +1,13 @@
 // src/env.d.ts
+// Central place for Cloudflare Pages/Workers env typings used by getEnv()
 
 declare global {
-  // This is the environment type returned by getRequestContext().env
-  // Add all Pages bindings + secrets here.
-  interface CloudflareEnv {
-    DB: D1Database;
+  interface Env {
+    // D1 Database binding
+    DB: any;
 
-    // Secrets / vars
+    // Pokémon TCG API key (optional)
     POKEMONTCG_API_KEY?: string;
-    ADMIN_IMPORT_TOKEN?: string;
   }
 }
 
