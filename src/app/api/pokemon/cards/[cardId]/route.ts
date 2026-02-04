@@ -1,4 +1,3 @@
-// src/app/api/pokemon/cards/[cardId]/route.ts
 import { getEnv } from "@/lib/cloudflare";
 
 export const runtime = "edge";
@@ -15,12 +14,11 @@ function err(message: string, status: number, extra?: any) {
 }
 
 /**
- * Expected UI cardId format:
- *   pokemon-base1-1-alakazam
- *
- * We derive:
+ * UI cardId format:
+ *   pokemon-base1-72-devolution-spray
+ * Derive:
  *   setId = base1
- *   number = 1
+ *   number = 72
  */
 function parseUiCardId(cardId: string): { setId?: string; number?: string } {
   if (!cardId.startsWith("pokemon-")) return {};
@@ -38,6 +36,24 @@ function safeJsonParse(s: string | null | undefined) {
   }
 }
 
+async function fetchFromPokemonTCG(
+  apiKey: string | undefined,
+  setId?: string,
+  number?: string
+) {
+  if (!setId || !number) return null;
+  const q = `set.id:${setId} number:${number}`;
+  const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`;
+
+  const res = await fetch(url, {
+    headers: apiKey ? { "X-Api-Key": apiKey } : {},
+  });
+
+  if (!res.ok) return null;
+  const body = await res.json();
+  return body?.data?.[0] ?? null;
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: { cardId: string } }
@@ -47,10 +63,8 @@ export async function GET(
 
   const { setId, number } = parseUiCardId(cardId);
 
-  // 1) Try to read from D1 "pokemon_cards" using production schema:
-  // id, setId, name, number, rarity, images, raw, updatedAt
+  // 1) Try offline D1 cache first (production schema)
   try {
-    // Prefer exact match by setId+number (works for your UI ids)
     if (setId && number) {
       const row = (await env.DB.prepare(
         `SELECT id, setId, name, number, rarity, images, raw, updatedAt
@@ -62,8 +76,6 @@ export async function GET(
         .first()) as any;
 
       if (row) {
-        const images = safeJsonParse(row.images) ?? null;
-        const raw = safeJsonParse(row.raw) ?? null;
         return json({
           source: "d1",
           cardId,
@@ -73,54 +85,78 @@ export async function GET(
             name: row.name,
             number: row.number,
             rarity: row.rarity,
-            images,
-            raw,
+            images: safeJsonParse(row.images),
+            raw: safeJsonParse(row.raw),
             updatedAt: row.updatedAt,
           },
         });
       }
     }
-
-    // Fallback: if UI passes a real pokemontcg card id in the future, allow lookup by id too
-    const byId = (await env.DB.prepare(
-      `SELECT id, setId, name, number, rarity, images, raw, updatedAt
-       FROM pokemon_cards
-       WHERE id = ?
-       LIMIT 1`
-    )
-      .bind(cardId)
-      .first()) as any;
-
-    if (byId) {
-      const images = safeJsonParse(byId.images) ?? null;
-      const raw = safeJsonParse(byId.raw) ?? null;
-      return json({
-        source: "d1",
-        cardId,
-        card: {
-          id: byId.id,
-          setId: byId.setId,
-          name: byId.name,
-          number: byId.number,
-          rarity: byId.rarity,
-          images,
-          raw,
-          updatedAt: byId.updatedAt,
-        },
-      });
-    }
   } catch (e: any) {
-    return err("Error reading pokemon_cards from D1.", 500, {
+    // If D1 read fails for some reason, we still try API so user isn't blocked.
+  }
+
+  // 2) Not in cache yet → fetch from pokemontcg.io and write-through to D1
+  const apiCard = await fetchFromPokemonTCG(env.POKEMONTCG_API_KEY, setId, number);
+
+  if (!apiCard) {
+    return err("Card not found (not in D1 cache, and API lookup failed).", 404, {
       cardId,
-      details: String(e),
+      tried: { setId, number },
+      hint: "If this is a valid card, verify your POKEMONTCG_API_KEY and that the card list endpoint is returning correct ids/numbers.",
     });
   }
 
-  // 2) If not in D1, don’t hard-fail with a misleading hint.
-  // The product requirement is "offline DB" — so we report missing cache clearly.
-  return err("Card not found in offline D1 cache.", 404, {
+  const toStore = {
+    id: apiCard.id ?? `${setId ?? "unknown"}-${number ?? "unknown"}`,
+    setId: apiCard?.set?.id ?? setId ?? "unknown",
+    name: apiCard?.name ?? null,
+    number: apiCard?.number ?? number ?? null,
+    rarity: apiCard?.rarity ?? null,
+    images: JSON.stringify(apiCard?.images ?? null),
+    raw: JSON.stringify(apiCard),
+  };
+
+  // Best-effort cache write (so next click is offline)
+  try {
+    await env.DB.prepare(
+      `INSERT INTO pokemon_cards (id, setId, name, number, rarity, images, raw, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+       ON CONFLICT(id) DO UPDATE SET
+         setId=excluded.setId,
+         name=excluded.name,
+         number=excluded.number,
+         rarity=excluded.rarity,
+         images=excluded.images,
+         raw=excluded.raw,
+         updatedAt=datetime('now')`
+    )
+      .bind(
+        toStore.id,
+        toStore.setId,
+        toStore.name,
+        toStore.number,
+        toStore.rarity,
+        toStore.images,
+        toStore.raw
+      )
+      .run();
+  } catch {
+    // ignore write errors — still return API card
+  }
+
+  return json({
+    source: "pokemontcg.io",
+    cached: true,
     cardId,
-    hint: "Your pokemon_cards table does not have this card yet. Run/repair the import that stores cards into D1.",
-    tried: { setId, number },
+    card: {
+      id: toStore.id,
+      setId: toStore.setId,
+      name: toStore.name,
+      number: toStore.number,
+      rarity: toStore.rarity,
+      images: safeJsonParse(toStore.images),
+      raw: apiCard,
+    },
   });
 }
