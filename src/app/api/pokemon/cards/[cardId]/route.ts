@@ -1,129 +1,126 @@
 // src/app/api/pokemon/cards/[cardId]/route.ts
-import { NextResponse } from "next/server";
-import { getRequestContext } from "@cloudflare/next-on-pages";
+import { getEnv } from "@/lib/cloudflare";
 
 export const runtime = "edge";
 
-// Cache at Cloudflare edge (fast + resilient). Adjust if you want shorter/longer.
-const CACHE_HEADERS = {
-  "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
-};
-
-function ok(data: any, init?: ResponseInit) {
-  return NextResponse.json(data, {
-    ...init,
-    headers: { ...CACHE_HEADERS, ...(init?.headers || {}) },
+function json(data: any, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8" },
   });
 }
 
-function err(message: string, status = 500, extra?: any) {
-  return NextResponse.json(
-    { error: message, ...(extra || {}) },
-    { status, headers: { ...CACHE_HEADERS } }
-  );
+function err(message: string, status: number, extra?: any) {
+  return json({ error: message, ...(extra ?? {}) }, status);
 }
 
-function asObject(maybeJson: any) {
-  if (!maybeJson) return null;
-  if (typeof maybeJson === "object") return maybeJson;
-  if (typeof maybeJson === "string") {
-    try {
-      return JSON.parse(maybeJson);
-    } catch {
-      return null;
-    }
+/**
+ * Expected UI cardId format:
+ *   pokemon-base1-1-alakazam
+ *
+ * We derive:
+ *   setId = base1
+ *   number = 1
+ */
+function parseUiCardId(cardId: string): { setId?: string; number?: string } {
+  if (!cardId.startsWith("pokemon-")) return {};
+  const parts = cardId.replace(/^pokemon-/, "").split("-");
+  if (parts.length < 2) return {};
+  return { setId: parts[0], number: parts[1] };
+}
+
+function safeJsonParse(s: string | null | undefined) {
+  if (!s) return null;
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
   }
-  return null;
 }
 
 export async function GET(
   _req: Request,
   { params }: { params: { cardId: string } }
 ) {
-  const cardId = params?.cardId;
-  if (!cardId) return err("Missing cardId", 400);
+  const env = getEnv();
+  const cardId = params.cardId;
 
-  // D1 binding via next-on-pages request context
-  const { env } = getRequestContext();
-  const db = env?.DB as D1Database | undefined;
+  const { setId, number } = parseUiCardId(cardId);
 
-  if (!db) {
-    return err("Database binding DB not found (D1 not configured).", 500);
-  }
+  // 1) Try to read from D1 "pokemon_cards" using production schema:
+  // id, setId, name, number, rarity, images, raw, updatedAt
+  try {
+    // Prefer exact match by setId+number (works for your UI ids)
+    if (setId && number) {
+      const row = (await env.DB.prepare(
+        `SELECT id, setId, name, number, rarity, images, raw, updatedAt
+         FROM pokemon_cards
+         WHERE setId = ? AND number = ?
+         LIMIT 1`
+      )
+        .bind(setId, number)
+        .first()) as any;
 
-  // Try a couple likely table/column shapes to be resilient.
-  // We DO NOT call PokémonTCG here — D1 only.
-  const candidates: Array<{
-    table: string;
-    where: string;
-    columns: string;
-  }> = [
-    // Most common pattern: a JSON blob column
-    { table: "pokemon_cards", where: "id = ?", columns: "id, data, json, card" },
-    { table: "cards", where: "id = ?", columns: "id, data, json, card" },
-
-    // Flat columns pattern (images may be separate)
-    {
-      table: "pokemon_cards",
-      where: "id = ?",
-      columns:
-        "id, name, number, setId, rarity, supertype, subtypes, imagesSmall, imagesLarge, imageSmall, imageLarge, image",
-    },
-    {
-      table: "cards",
-      where: "id = ?",
-      columns:
-        "id, name, number, setId, rarity, supertype, subtypes, imagesSmall, imagesLarge, imageSmall, imageLarge, image",
-    },
-  ];
-
-  let row: any = null;
-  let lastError: any = null;
-
-  for (const c of candidates) {
-    try {
-      const sql = `SELECT ${c.columns} FROM ${c.table} WHERE ${c.where} LIMIT 1`;
-      row = await db.prepare(sql).bind(cardId).first();
-      if (row) break;
-    } catch (e) {
-      lastError = e;
-      // keep trying other shapes
+      if (row) {
+        const images = safeJsonParse(row.images) ?? null;
+        const raw = safeJsonParse(row.raw) ?? null;
+        return json({
+          source: "d1",
+          cardId,
+          card: {
+            id: row.id,
+            setId: row.setId,
+            name: row.name,
+            number: row.number,
+            rarity: row.rarity,
+            images,
+            raw,
+            updatedAt: row.updatedAt,
+          },
+        });
+      }
     }
-  }
 
-  if (!row) {
-    return err("Card not found in D1. Import may be incomplete.", 404, {
+    // Fallback: if UI passes a real pokemontcg card id in the future, allow lookup by id too
+    const byId = (await env.DB.prepare(
+      `SELECT id, setId, name, number, rarity, images, raw, updatedAt
+       FROM pokemon_cards
+       WHERE id = ?
+       LIMIT 1`
+    )
+      .bind(cardId)
+      .first()) as any;
+
+    if (byId) {
+      const images = safeJsonParse(byId.images) ?? null;
+      const raw = safeJsonParse(byId.raw) ?? null;
+      return json({
+        source: "d1",
+        cardId,
+        card: {
+          id: byId.id,
+          setId: byId.setId,
+          name: byId.name,
+          number: byId.number,
+          rarity: byId.rarity,
+          images,
+          raw,
+          updatedAt: byId.updatedAt,
+        },
+      });
+    }
+  } catch (e: any) {
+    return err("Error reading pokemon_cards from D1.", 500, {
       cardId,
-      hint: "This endpoint is D1-only and will not call pokemontcg.io.",
-      details: lastError ? String(lastError) : undefined,
+      details: String(e),
     });
   }
 
-  // Prefer JSON blob if present
-  const blob =
-    asObject((row as any).data) || asObject((row as any).json) || asObject((row as any).card);
-
-  if (blob) {
-    // Ensure id is present
-    if (!blob.id) blob.id = row.id ?? cardId;
-    return ok(blob);
-  }
-
-  // Otherwise return the row as-is (flat columns)
-  // Normalize some common image fields into an "images" object if possible
-  const imageLarge =
-    (row as any).imagesLarge || (row as any).imageLarge || (row as any).image || null;
-  const imageSmall =
-    (row as any).imagesSmall || (row as any).imageSmall || (row as any).image || null;
-
-  const normalized = {
-    ...row,
-    id: row.id ?? cardId,
-    images:
-      imageLarge || imageSmall
-        ? { large: imageLarge ?? undefined, small: imageSmall ?? undefined }
-        : undefined,
-  };
-
-  return ok(normalized);
+  // 2) If not in D1, don’t hard-fail with a misleading hint.
+  // The product requirement is "offline DB" — so we report missing cache clearly.
+  return err("Card not found in offline D1 cache.", 404, {
+    cardId,
+    hint: "Your pokemon_cards table does not have this card yet. Run/repair the import that stores cards into D1.",
+    tried: { setId, number },
+  });
 }
