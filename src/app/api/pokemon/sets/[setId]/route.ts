@@ -13,8 +13,8 @@ function json(data: any, init?: ResponseInit) {
 }
 
 export async function GET(_: Request, { params }: { params: { setId: string } }) {
-  const { env } = getRequestContext<any>();
-  const DB: D1Database | undefined = env?.DB;
+  const { env } = getRequestContext();
+  const DB = (env as any)?.DB as D1Database | undefined;
 
   if (!DB) return json({ error: "DB binding not available" }, { status: 500 });
 

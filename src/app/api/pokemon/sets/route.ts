@@ -19,8 +19,8 @@ function extractSetId(canonicalName: string) {
 }
 
 export async function GET() {
-  const { env } = getRequestContext<any>();
-  const DB: D1Database | undefined = env?.DB;
+  const { env } = getRequestContext();
+  const DB = (env as any)?.DB as D1Database | undefined;
 
   if (!DB) return json({ error: "DB binding not available" }, { status: 500 });
 

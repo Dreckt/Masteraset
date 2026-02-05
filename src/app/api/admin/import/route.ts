@@ -207,7 +207,7 @@ async function resolveGameIdOrThrow(DB: D1Database, raw: string, maps?: Awaited<
 export async function GET(req: Request) {
   const ctx: any = getRequestContext();
   const env: any = ctx?.env;
-  const DB: D1Database | undefined = env?.DB;
+  const DB = (env as any)?.DB as D1Database | undefined;
 
   if (!DB) return json({ build: BUILD_ID, error: "D1 binding DB not available in runtime env." }, { status: 500 });
 
@@ -268,7 +268,7 @@ export async function POST(req: Request) {
     return json({ build: BUILD_ID, error: "Missing CSV file upload (field name: file)." }, { status: 400 });
   }
 
-  const DB: D1Database | undefined = env?.DB;
+  const DB = (env as any)?.DB as D1Database | undefined;
   if (!DB) return json({ build: BUILD_ID, error: "D1 binding DB not available in runtime env." }, { status: 500 });
 
   const text = new TextDecoder("utf-8").decode(await file.arrayBuffer());
