@@ -78,65 +78,58 @@ function assertRequired(row: CsvRow, keys: string[], rowIndex: number): void {
 }
 
 function jsonResponse(payload: unknown, status = 200): Response {
-  return new Response(JSON.stringify(payload), {
+  return new Response(JSON.stringify(payload, null, 2), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json; charset=utf-8" },
   });
 }
 
-export async function GET(): Promise<Response> {
-  // Existence / health check
-  return jsonResponse({
-    ok: true,
-    route: "/api/admin/import/printings",
-    runtime: "edge",
-  });
+function badRequest(message: string, extra?: any): Response {
+  return jsonResponse({ ok: false, error: message, ...(extra ?? {}) }, 400);
+}
+
+function unauthorized(message: string): Response {
+  return jsonResponse({ ok: false, error: message }, 401);
 }
 
 export async function POST(req: Request): Promise<Response> {
-  const { env } = getRequestContext<{ DB: D1Database }>();
-
-  // Basic header gate (presence). We can hard-enforce a token value later.
-  const adminHeader = requireHeader(req, "x-admin-token");
-  if (!adminHeader) {
-    return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
-  }
-
-  // Parse body
-  let body: { rows?: CsvRow[] };
   try {
-    body = await req.json();
-  } catch {
-    return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400);
-  }
+    // ✅ IMPORTANT: getRequestContext() returns env typed in a way that can break TS builds.
+    // We cast it once to our global Env (src/env.d.ts) so env.DB is always valid in TypeScript.
+    const { env } = getRequestContext();
+    const cfEnv = env as unknown as Env;
 
-  const rows = body.rows;
-  if (!Array.isArray(rows) || rows.length === 0) {
-    return jsonResponse({ ok: false, error: "Missing rows array" }, 400);
-  }
+    // Basic token presence check (does not validate value)
+    const token = requireHeader(req, "x-admin-token");
+    if (!token) return unauthorized("Missing required header: x-admin-token");
 
-  const required = [
-    "game_slug",
-    "set_name",
-    "card_id",
-    "card_name",
-    "collector_number",
-    "language",
-    "rarity",
-    "rarity_rank",
-    "variant",
-    "variant_rank",
-  ];
+    const body = (await req.json().catch(() => null)) as any;
+    const rows = (body?.rows ?? []) as CsvRow[];
 
-  try {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return badRequest("Missing 'rows' array in JSON body.");
+    }
+
+    const requiredKeys = [
+      "game_slug",
+      "set_name",
+      "card_id",
+      "card_name",
+      "collector_number",
+      "language",
+      "rarity",
+      "rarity_rank",
+      "variant",
+      "variant_rank",
+    ];
+
     const stmts: D1PreparedStatement[] = [];
 
-    rows.forEach((row, idx) => {
-      const rowIndex = idx + 1;
-      assertRequired(row, required, rowIndex);
+    rows.forEach((row, i) => {
+      assertRequired(row, requiredKeys, i);
 
-      // These are computed helpers you can use to match your schema
-      const gameSlug = slugify(row.game_slug);
+      const gameSlug = normalize(row.game_slug);
+
       const setName = normalize(row.set_name);
       const setCode = normalize(row.set_code);
       const setSlug = slugify(setName || setCode || "unknown-set");
@@ -165,7 +158,7 @@ export async function POST(req: Request): Promise<Response> {
        * If your schema differs, we’ll adjust after we confirm the function emits.
        */
       stmts.push(
-        env.DB.prepare(
+        cfEnv.DB.prepare(
           `
           INSERT INTO printings (
             game_slug,
@@ -204,12 +197,16 @@ export async function POST(req: Request): Promise<Response> {
       );
     });
 
-    await env.DB.batch(stmts);
+    await cfEnv.DB.batch(stmts);
 
     return jsonResponse({ ok: true, inserted: stmts.length }, 200);
   } catch (err: any) {
     return jsonResponse(
-      { ok: false, error: err?.message ?? String(err) },
+      {
+        ok: false,
+        error: "Import failed",
+        details: String(err?.message ?? err),
+      },
       500
     );
   }
