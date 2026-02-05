@@ -65,7 +65,6 @@ async function fetchFromPokemonTCG(
 
   if (!res.ok) return null;
 
-  // ✅ Give TS a real shape so build doesn't fail
   const body = (await res.json()) as PokemonTCGCardsResponse;
   return body?.data?.[0] ?? null;
 }
@@ -76,6 +75,9 @@ export async function GET(
 ) {
   const env = getEnv();
   const cardId = params.cardId;
+
+  // ✅ IMPORTANT: avoid TS build failures if Env typing doesn't include the key
+  const apiKey = (env as any).POKEMONTCG_API_KEY as string | undefined;
 
   const { setId, number } = parseUiCardId(cardId);
 
@@ -113,14 +115,14 @@ export async function GET(
   }
 
   // 2) Not in cache yet → fetch from pokemontcg.io and write-through to D1
-  const apiCard = await fetchFromPokemonTCG(env.POKEMONTCG_API_KEY, setId, number);
+  const apiCard = await fetchFromPokemonTCG(apiKey, setId, number);
 
   if (!apiCard) {
     return err("Card not found (not in D1 cache, and API lookup failed).", 404, {
       cardId,
       tried: { setId, number },
       hint:
-        "If this is a valid card, verify your POKEMONTCG_API_KEY and that the card list endpoint is returning correct ids/numbers.",
+        "If this is a valid card, verify your POKEMONTCG_API_KEY is set in Cloudflare Pages env vars and the API is reachable.",
     });
   }
 
